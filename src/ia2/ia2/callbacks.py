@@ -33,22 +33,36 @@ def print_scores_on_epoch(validation=True):
         f_score = state["history"]["f_score"][-1]
         precision_score = state["history"]["precision"][-1]
         batches = state["history"]["batches"][-1]
-        logger.info("......................................................................")
-        logger.info(f" Epoch N° {e}/{state['epochs']} | batches processed: {batches}")
-        logger.info(f"Scores : NER loss:{ner}, f1-score: {f_score}, precision: {precision_score}")
+        logger.info(
+            "......................................................................"
+        )
+        logger.info(
+            f" Epoch N° {e}/{state['epochs']} | batches processed: {batches}"
+        )
+        logger.info(
+            f"Scores : NER loss:{ner}, f1-score: {f_score}, precision: {precision_score}"
+        )
 
         # discard validation data
         if validation:
             val_f_score = state["history"]["val_f_score"][-1]
             val_precision_score = state["history"]["val_precision"][-1]
-            logger.info(f"Validation Losses rate: f1-score: {val_f_score}, precision: {val_precision_score}")
+            logger.info(
+                f"Validation Losses rate: f1-score: {val_f_score}, precision: {val_precision_score}"
+            )
 
         return state
 
     return print_scores_cb
 
 
-def save_best_model(path_best_model="", threshold=40, score="val_f_score", mode="max", test=False):
+def save_best_model(
+    path_best_model="",
+    threshold=40,
+    score="val_f_score",
+    mode="max",
+    test=False,
+):
     """
     Save the model if the epoch score is more than the threshold
     or if current score is a new max.
@@ -65,9 +79,13 @@ def save_best_model(path_best_model="", threshold=40, score="val_f_score", mode=
         save = False
 
         if mode == "max":
-            save = (state["history"][score][-1] >= threshold) and (state["history"][score][-1] > state["max_" + score])
+            save = (state["history"][score][-1] >= threshold) and (
+                state["history"][score][-1] > state["max_" + score]
+            )
         elif mode == "min":
-            save = (state["history"][score][-1] <= threshold) and (state["history"][score][-1] < state["min_" + score])
+            save = (state["history"][score][-1] <= threshold) and (
+                state["history"][score][-1] < state["min_" + score]
+            )
 
         if save:
             e = state["i"] + 1
@@ -82,13 +100,19 @@ def save_best_model(path_best_model="", threshold=40, score="val_f_score", mode=
             with model.use_params(optimizer.averages):
 
                 model.to_disk(path_best_model)
-                print("Saving model with the following pipes", model.pipe_names)
+                print(
+                    "Saving model with the following pipes", model.pipe_names
+                )
                 logger.info(f"💾 Saving model for epoch {e}")
                 state["history"]["saved"][state["i"]] = path_best_model
 
             #  disble other pipes
             pipe_exceptions = ["ner"]
-            other_pipes = [pipe for pipe in model.pipe_names if pipe not in pipe_exceptions]
+            other_pipes = [
+                pipe
+                for pipe in model.pipe_names
+                if pipe not in pipe_exceptions
+            ]
             disabled_pipes = model.disable_pipes(*other_pipes)
             # since model is a reference for nlp, ensure the train continues only with ner
             assert (
@@ -100,7 +124,9 @@ def save_best_model(path_best_model="", threshold=40, score="val_f_score", mode=
     return save_best_model_cb
 
 
-def reduce_lr_on_plateau(step=0.001, epochs=4, diff=1, score="val_f_score", last_chance=True):
+def reduce_lr_on_plateau(
+    step=0.001, epochs=4, diff=1, score="val_f_score", last_chance=True
+):
     """
     Whe the model is not getting better scores (plateau or decrease)
     from the selected amount of last epochs this function sets the
@@ -113,17 +139,23 @@ def reduce_lr_on_plateau(step=0.001, epochs=4, diff=1, score="val_f_score", last
     :param last_chance gives an extra oportunity if the last epoch has a positive diff
     """
 
-    def reduce_lr_on_plateau_cb(state, logger, model, optimizer, disabled_pipes):
+    def reduce_lr_on_plateau_cb(
+        state, logger, model, optimizer, disabled_pipes
+    ):
         if len(state["history"][score]) > epochs and state["lr"] > step:
             delta = np.diff(state["history"][score])[-epochs:]
 
             if np.mean(delta) < diff:
                 # maybe you have been getting bad scores but the last epoch shed a glimmer of hope
                 if last_chance and delta[-1] > 0:
-                    logger.info("[reduce_lr_on_plateau] Positive rate 🛫! waiting a bit more until touch learning rate")
+                    logger.info(
+                        "[reduce_lr_on_plateau] Positive rate 🛫! waiting a bit more until touch learning rate"
+                    )
                 else:
                     state["lr"] -= step
-                    state["epochs"] += 1  # CHECK! we add 1 epoch for each decrementation of the LR
+                    state[
+                        "epochs"
+                    ] += 1  # CHECK! we add 1 epoch for each decrementation of the LR
                     logger.info(
                         f"[reduce_lr_on_plateau] Not learning then reduce learn rate to {state['lr']} and epochs to {state['epochs']}"
                     )
@@ -151,10 +183,14 @@ def early_stop(epochs=10, score="val_f_score", diff=5, last_chance=True):
             if np.sum(delta) < diff:
                 # maybe you have been getting bad scores but the last epoch shed a glimmer of hope
                 if last_chance and delta[-1] > 0:
-                    logger.info("[early_stop] Positive rate 🛫! One more chance")
+                    logger.info(
+                        "[early_stop] Positive rate 🛫! One more chance"
+                    )
                 else:
                     state["stop"] = True
-                    logger.info("[early_stop] Not learning what I want 😭😭. Bye Bye Adieu!")
+                    logger.info(
+                        "[early_stop] Not learning what I want 😭😭. Bye Bye Adieu!"
+                    )
 
         return state
 
@@ -207,19 +243,27 @@ def change_dropout_fixed(step=0.01, until=0.5):
     :param until limit for dropout change
     """
 
-    def change_dropout_fixed_cb(state, logger, model, optimizer, disabled_pipes):
+    def change_dropout_fixed_cb(
+        state, logger, model, optimizer, disabled_pipes
+    ):
 
         state["dropout"]
         if step > 0 and state["dropout"] < until:
             state["dropout"] += step
-            logger.info(f"[change_dropout_fixed] touching dropout. New value {state['dropout']}")
+            logger.info(
+                f"[change_dropout_fixed] touching dropout. New value {state['dropout']}"
+            )
         elif step < 0 and state["dropout"] > until:
             # negative step
             state["dropout"] += step
-            logger.info(f"[change_dropout_fixed] touching dropout. New value {state['dropout']}")
+            logger.info(
+                f"[change_dropout_fixed] touching dropout. New value {state['dropout']}"
+            )
 
         else:
-            logger.info("[change_dropout_fixed] No more room for touching dropout")
+            logger.info(
+                "[change_dropout_fixed] No more room for touching dropout"
+            )
 
         return state
 
@@ -239,14 +283,22 @@ def log_best_scores(validation=True):
         logger.info("\n\n")
         logger.info("-------🏆-BEST-SCORES-🏅----------")
         e = state["i"]
-        logger.info(f"using a dataset of length {state['train_size']} in {e}/{state['epochs']}")
+        logger.info(
+            f"using a dataset of length {state['train_size']} in {e}/{state['epochs']}"
+        )
         logger.info(f"elapsed time: {state['elapsed_time']} minutes")
         logger.info(f"NER loss -> min {state['min_ner']}")
         # Scores
         if validation:
-            logger.info(f"RECALL -> max {state['max_recall']} | validation max {state['max_val_recall']}")
-            logger.info(f"PRECISION -> max {state['max_precision']} | val max {state['max_val_precision']}")
-            logger.info(f"F-SCORE -> max {state['max_f_score']} | val max {state['max_val_f_score']}")
+            logger.info(
+                f"RECALL -> max {state['max_recall']} | validation max {state['max_val_recall']}"
+            )
+            logger.info(
+                f"PRECISION -> max {state['max_precision']} | val max {state['max_val_precision']}"
+            )
+            logger.info(
+                f"F-SCORE -> max {state['max_f_score']} | val max {state['max_val_f_score']}"
+            )
         else:
             logger.info(f"RECALL -> max {state['max_recall']}")
             logger.info(f"PRECISION -> max {state['max_precision']}")
@@ -265,7 +317,7 @@ def save_csv_history(filename="history.csv", session="", validation=True):
     """
 
     def save_csv_history_cb(state, logger, model, optimizer, disabled_pipes):
-        path = f"history/{filename}"
+        path = f"/workspace/resources/ouputs/history/{filename}"
         logger.info("\n\n")
         logger.info(f"[save_csv_history] 💾 Saving history in a {path} file")
         # create file if not exists
@@ -308,7 +360,12 @@ def save_csv_history(filename="history.csv", session="", validation=True):
                 val_precision = state["history"]["val_precision"][i]
                 val_per_type_score = state["history"]["val_per_type_score"][i]
             else:
-                val_f_score, val_recall, val_precision, val_per_type_score = None, None, None, None
+                val_f_score, val_recall, val_precision, val_per_type_score = (
+                    None,
+                    None,
+                    None,
+                    None,
+                )
 
             rows.append(
                 {

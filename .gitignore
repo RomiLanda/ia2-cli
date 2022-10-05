@@ -1,38 +1,19 @@
-# Text Editors
 .vscode
+.python-version
+Pipfile.lock
+**/__pycache__
+**/*.ipynb_checkpoints
+**/*.egg-info
+**/*.virtual_documents
 
-# Training Configuration
-train_config.json
+**/*.csv
+**/*.pkl
 
-# Spacy Models
-models/*
-!models/.gitkeep
+src/*/build
+src/*/pyproject.toml
 
-# Logs
-logs/*
-!logs/.gitkeep
+resources/outputs/*
+!resources/outputs/.gitkeep
 
-# Training History
-history/*
-!history/.gitkeep
-
-# Datasets
-data/*
-!data/.gitkeep
-
-# Misc
-__pycache__
-
-# Logs
-logs
-
-# Virtualenv
-/venv
-
-# Dist
-dist
-
-# Env
-.env
-
-spacy_script.py
+resources/dataset/*
+!resources/dataset/.gitkeep

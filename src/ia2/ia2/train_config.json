@@ -1,0 +1,144 @@
+{
+  "model_t_v": {
+    "use_gpu": false,
+    "path_data_training": "resources/datasets/old_data/unified/training_.json",
+    "path_data_validation": "resources/datasets/old_data/unified/validation_.json",
+    "path_data_testing": "resources/datasets/old_data/unified/test.json",
+    "evaluate": "test",
+    "is_raw": false,
+    "save_misaligneds_to_file": false,
+    "train_subset": 0,
+    "model_path": "/workspace/src/ia2/ia2/models/2022-09-20",
+    "entities": "PER, LOC, DIRECCIÓN, ARTÍCULO",
+    "epochs": 45,
+    "optimizer": {
+      "learn_rate": 0.001,
+      "L2": 0.001
+    },
+    "dropout": 0.45,
+    "batch_size": 4,
+    "callbacks": {
+      "on_iteration": [
+        {
+          "f": "print_scores_on_epoch",
+          "validation": false
+        },
+        {
+          "f": "save_best_model",
+          "path_best_model": "src/ia2/ia2/models/test_pipes",
+          "threshold": 30000,
+          "mode": "min",
+          "score": "ner",
+          "test": true
+        },
+        {
+          "f": "early_stop",
+          "epochs": 32,
+          "diff": 0.1,
+          "score": "f_score"
+        },
+        {
+          "f": "reduce_lr_on_plateau",
+          "epochs": 3,
+          "diff": 1,
+          "step": 0.0001,
+          "score": "f_score"
+        },
+        {
+          "f": "update_best_scores",
+          "validation": false
+        },
+        {
+          "f": "change_dropout_fixed",
+          "step": -0.01,
+          "until": 0.30
+        },
+        {
+          "f": "sleep",
+          "secs": 3,
+          "log": true
+        }
+      ],
+      "on_batch": [
+        {
+          "f": "sleep",
+          "secs": 0.1
+        }
+      ],
+      "on_stop": [
+        {
+          "f": "log_best_scores"
+        },
+        {
+          "f": "save_csv_history"
+        }
+      ]
+    }
+  },
+  "train_val": {
+    "use_gpu": false,
+    "path_data_training": "resources/datasets/old_data/unified/training_.json",
+    "path_data_validation": "resources/datasets/old_data/unified/validation_.json",
+    "is_raw": false,
+    "save_misaligneds_to_file": false,
+    "train_subset": 0,
+    "model_path": "src/ia2/ia2/models/base/2022-09-20",
+    "entities": "PER, LOC, DIRECCIÓN, ARTÍCULO",
+    "epochs": 5,
+    "optimizer": {
+      "learn_rate": 0.00001
+    },
+    "dropout": 0.35,
+    "batch_size": 2,
+    "callbacks": {
+      "on_iteration": [
+        {
+          "f": "print_scores_on_epoch"
+        },
+        {
+          "f": "early_stop",
+          "epochs": 20,
+          "diff": 0.1
+        },
+        {
+          "f": "reduce_lr_on_plateau",
+          "epochs": 4,
+          "diff": 0.05,
+          "step": 0.0001
+        },
+        {
+          "f": "change_dropout_fixed",
+          "step": -0.01,
+          "until": 0.3
+        },
+        {
+          "f": "sleep",
+          "secs": 2,
+          "log": true
+        },
+        {
+          "f": "save_best_model",
+          "path_best_model": "src/ia2/ia2/models/best_train_merge",
+          "threshold": 1
+        },
+        {
+          "f": "update_best_scores"
+        },
+        {
+          "f": "sleep",
+          "secs": 1,
+          "log": true
+        }
+      ],
+      "on_batch": [],
+      "on_stop": [
+        {
+          "f": "log_best_scores"
+        },
+        {
+          "f": "save_csv_history"
+        }
+      ]
+    }
+  }
+}
