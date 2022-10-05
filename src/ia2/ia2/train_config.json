@@ -1,13 +1,13 @@
 {
   "model_t_v": {
     "use_gpu": false,
-    "path_data_training": "resources/datasets/old_data/unified/training_.json",
-    "path_data_validation": "resources/datasets/old_data/unified/validation_.json",
-    "path_data_testing": "resources/datasets/old_data/unified/test.json",
+    "path_data_training": "resources/datasets/unified/training_.json",
+    "path_data_validation": "resources/datasets/unified/validation_.json",
+    "path_data_testing": "resources/datasets/unified/test.json",
     "evaluate": "test",
     "is_raw": false,
     "save_misaligneds_to_file": false,
-    "train_subset": 0,
+    "train_subset": 5,
     "model_path": "/workspace/src/ia2/ia2/models/2022-09-20",
     "entities": "PER, LOC, DIRECCIÓN, ARTÍCULO",
     "epochs": 45,

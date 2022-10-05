@@ -16,4 +16,11 @@ resources/outputs/*
 !resources/outputs/.gitkeep
 
 resources/dataset/*
+resources/datasets/unified/*
 !resources/dataset/.gitkeep
+
+src/ia2/ia2/models/*
+!models/.gitkeep
+
+src/ia2/ia2/logs/*
+!logs/.gitkeep
