@@ -1,4 +1,3 @@
-import shutil
 import logging
 import datetime
 import subprocess
@@ -21,11 +20,11 @@ def set_optimizer(
     """
 
     optimizer.learn_rate = learn_rate
-    optimizer.beta1 = beta1
-    optimizer.beta2 = beta2
+    optimizer.b1 = beta1
+    optimizer.b2 = beta2
     optimizer.eps = eps
     optimizer.L2 = L2
-    optimizer.max_grad_norm = max_grad_norm
+    optimizer.grad_clip = max_grad_norm
 
     return optimizer
 

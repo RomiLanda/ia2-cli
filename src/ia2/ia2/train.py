@@ -1,6 +1,5 @@
 import fire
 import warnings
-import pickle
 import logging
 import json
 import random
@@ -11,16 +10,16 @@ import sys
 import spacy
 import time
 import shutil
-import utils
+import ia2.utils
 import functools
 from spacy.util import minibatch, compounding, decaying
 from spacy.scorer import Scorer
-from spacy.gold import GoldParse
+from spacy.training import Example, offsets_to_biluo_tags
 from spacy.cli import package
 import srsly
 from os import listdir
 from os.path import isfile, join
-from callbacks import (
+from ia2.callbacks import (
     print_scores_on_epoch,
     save_best_model,
     reduce_lr_on_plateau,
@@ -33,13 +32,13 @@ from callbacks import (
 )
 
 from spacy.pipeline import EntityRuler
-from pipeline.entity_ruler import fetch_ruler_patterns_by_tag
-from pipeline.entity_matcher import (
+from ia2.pipeline.entity_ruler import fetch_ruler_patterns_by_tag
+from ia2.pipeline.entity_matcher import (
     EntityMatcher,
     matcher_patterns,
     fetch_cb_by_tag,
 )
-from pipeline.entity_custom import EntityCustom
+from ia2.pipeline.entity_custom import EntityCustom
 
 logger = logging.getLogger("Spacy cli util")
 logger.setLevel(logging.DEBUG)
@@ -186,7 +185,7 @@ class SpacyUtils:
         for ent in arr:
             ner.add_label(ent)
         print(f"Entities add to model {ner.move_names}")
-        nlp.begin_training()
+        nlp.create_optimizer()
         nlp.to_disk(model_path)
 
         logger.info(f'Succesfully added entities at model: "{model_path}".')
@@ -293,7 +292,7 @@ class SpacyUtils:
             for text, annotations in data:
                 doc_gold_text = nlp.make_doc(text)
                 annotation_ents = annotations.get("entities")
-                alignment_values = spacy.gold.biluo_tags_from_offsets(
+                alignment_values = spacy.training.offsets_to_biluo_tags(
                     doc_gold_text, annotation_ents
                 )
                 is_misaligned_doc = True if "-" in alignment_values else False
@@ -359,7 +358,7 @@ class SpacyUtils:
     ):
         init_time = time.time()
         print("\nsettings", settings)
-        optimizer = utils.set_optimizer(optimizer, **settings["optimizer"])
+        optimizer = ia2.utils.set_optimizer(optimizer, **settings["optimizer"])
         state = {
             "i": 0,
             "epochs": n_iter,
@@ -401,11 +400,11 @@ class SpacyUtils:
             test_texts, test_annotations = zip(*testing_data)
 
         tr_texts, tr_annotations = zip(*training_data)
+        losses = None
 
         while not state["stop"] and state["i"] < state["epochs"]:
             # Randomizes training data
             random.shuffle(training_data)
-            losses = {}
 
             # set/update Adam optimizer from state
             optimizer.learn_rate = state["lr"]
@@ -421,13 +420,15 @@ class SpacyUtils:
             # bz = []
             for batch in batches:
                 num_batches += 1
-                texts, annotations = zip(*batch)
-                # bz.append(len(texts))
-                nlp.update(
-                    texts,  # batch of raw texts
-                    annotations,  # batch of annotations
+                # Create Example instance for each training example in mini batch
+                texts = [
+                    Example.from_dict(nlp.make_doc(text), annotations)
+                    for text, annotations in batch
+                ]
+                # Update model with mini batch
+                losses = nlp.update(
+                    texts,
                     drop=state["dropout"],
-                    losses=losses,
                     sgd=optimizer,
                 )
 
@@ -482,7 +483,7 @@ class SpacyUtils:
             except Exception as e:
                 logger.exception("The batch has no training data.")
 
-            utils.save_state_history(
+            ia2.utils.save_state_history(
                 state,
                 numero_losses,
                 f_score,
@@ -594,8 +595,8 @@ class SpacyUtils:
                 test_ds = train_config["path_data_testing"]
 
             # train settings
-            dropout = utils.set_dropout(train_config, FUNC_MAP)
-            batch_size, batch_args = utils.set_batch_size(
+            dropout = ia2.utils.set_dropout(train_config, FUNC_MAP)
+            batch_size, batch_args = ia2.utils.set_batch_size(
                 train_config, FUNC_MAP
             )
 
@@ -764,9 +765,7 @@ class SpacyUtils:
 
             # NOTE these configs are not yet well documented in SpaCy 2
             # please read this https://github.com/explosion/spaCy/issues/5513#issuecomment-635169316
-            optimizer = nlp.begin_training(
-                component_cfg={"ner": {"conv_window": 3, "hidden_width": 64}}
-            )
+            optimizer = nlp.create_optimizer()
 
             # this initial save remove the pipelines from base model and is not restoring them
             #
@@ -843,16 +842,18 @@ class SpacyUtils:
         scorer = Scorer()
         try:
             doc_gold_text = nlp.make_doc(text)
-            alignment_values = spacy.gold.biluo_tags_from_offsets(
+
+            alignment_values = spacy.training.offsets_to_biluo_tags(
                 doc_gold_text, entity_ocurrences.get("entities")
             )
             is_misaligned_doc = True if "-" in alignment_values else False
-            gold = GoldParse(
-                doc_gold_text, entities=entity_ocurrences.get("entities")
+            gold = Example.from_dict(
+                doc_gold_text, {"entities": entity_ocurrences.get("entities")}
             )
-            pred_value = nlp(text)
-            scorer.score(pred_value, gold)
-            return scorer.scores, is_misaligned_doc, alignment_values
+            gold.predicted = nlp(str(gold.predicted))
+            scr = scorer.score([gold])
+
+            return scr, is_misaligned_doc, alignment_values
         except Exception as e:
             print(e)
 
