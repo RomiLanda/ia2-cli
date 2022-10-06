@@ -47,16 +47,9 @@ RUN wget https://github.com/pypa/pip/archive/refs/tags/${PIP_VERSION}.zip \
     && cd pip-${PIP_VERSION} \
     && python setup.py install
 
-# Install pytorch
-RUN --mount=type=cache,target=/root/.cache \
-    pip install torch==1.11.0+cu113 \
-    -f https://download.pytorch.org/whl/cu113/torch_stable.html
-
 #Install Spacy
 RUN pip install -U pip setuptools wheel \
-    pip install -U spacy[cu113] \
-    pip install spacy-transformers \
-    pip install cupy-wheel
+    && pip install spacy==2.3.2
 
 # install requirements
 COPY ./src/ia2 /tmp/ia2

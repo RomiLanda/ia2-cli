@@ -10,18 +10,27 @@
 
 ## Stack Tecnológico
 
-- Python, versión 3.10
+- Python, versión 3.7
 - [Fire](https://github.com/google/python-fire)
-- [Spacy](https://spacy.io/)
+- [Spacy](https://spacy.io/), versión 2.3.2
 
 ## Instalación
 
-> Se recomienda instalar alguna herramienta para administrar versiones de python, como [pyenv](https://github.com/pyenv/pyenv) y alguna extensión para los ambientes virtuales, por ejemplo: [virtualenvwrapper](https://virtualenvwrapper.readthedocs.io/en/latest/).
+Este repositorio necesita Docker y docker-compose.
 
-Instalación de dependencias
+## Jupiter build and run
 
+**Build**
 ```bash
-pip install -r requirements.txt
+make jupyter-build
+```
+**Build & Run (GPU)**
+```bash
+make jupyter-run
+```
+**Build & Run (CPU)**
+```bash
+make jupyter-run-cpu
 ```
 
 ## Ambiente de desarrollo
@@ -53,7 +62,7 @@ Descargar un modelo base
 python -m spacy download es_core_news_lg
 ```
 
-Crear un modelo basado en `es_core_news_lg` y guardarlo en la carpeta `models/base/2021-01-19`
+Crear un modelo basado en `es_core_news_lg` y guardarlo en la carpeta `models/2022-09-20`
 
 ```bash
 python src/ia2/ia2/train.py  create_custom_spacy_model \
@@ -72,7 +81,7 @@ python train.py add_new_entity_to_model \
 Entrenar un modelo (crear previamente un archivo `train_config.json` basado en `example_train_config.json`)
 
 ```bash
-python train.py train example_tuning_hyperparams
+python src/ia2/ia2/train.py train example_tuning_hyperparams
 ```
 
 ## Línea de Comandos
@@ -82,7 +91,7 @@ python train.py train example_tuning_hyperparams
 El flag `--help` proporciona información de los scripts disponibles.
 
 ```bash
-python train.py --help
+python src/ia2/ia2/train.py --help
 ```
 
 ### Crear un modelo base
@@ -91,13 +100,13 @@ python train.py --help
 - `output_path`: directorio donde se almacenará el nuevo modelo
 
 ```bash
-python train.py create_custom_spacy_model <model_name> <output_path>
+python src/ia2/ia2/train.py create_custom_spacy_model <model_name> <output_path>
 ```
 
 **Ejemplo para un modelo en español:**
 
 ```bash
-python train.py create_custom_spacy_model \
+python src/ia2/ia2/train.py create_custom_spacy_model \
   "es_core_news_lg" \
   "models/base/2021-01-19"
 ```
@@ -140,13 +149,13 @@ El entrenamiento guardará el mejor modelo (siempre que supere el threshold - le
 - `config_name`: nombre de la configuración que se usará para entrenar el modelo, dicha debería estar en un archivo de configuración con el nombre `train_config.json`.
 
 ```bash
-python train.py train <config_name>
+python src/ia2/ia2/train.py train <config_name>
 ```
 
 **Ejemplo:**
 
 ```bash
-python train.py train example_tuning_hyperparams
+python src/ia2/ia2/train.py train example_tuning_hyperparams
 ```
 
 El archivo de configuración `train_config.json` se debe generar a partir de `example_train_config.json`. Los parámetros disponibles para modificar son:
@@ -176,13 +185,13 @@ El siguiente comando permite visualizar rapidamente resultados de un entrenamien
 - `test_text`: string que represente un texto de prueba
 
 ```bash
-python train.py display_text_prediction <model_path> <test_text>
+python src/ia2/ia2/train.py display_text_prediction <model_path> <test_text>
 ```
 
 **Ejemplo:**
 
 ```bash
-python train.py display_text_prediction \
+python src/ia2/ia2/train.py display_text_prediction \
   models/base/2021-01-19 \
   "Soy un texto de prueba para detectar alguna entidad"
 ```
@@ -199,7 +208,7 @@ El siguiente comando transforma una serie de documentos `.json` en formato datat
 - `num_files`: número de archivos que serán incluídos en la creación del dataset. Por defecto es `0` e incluye todos los archivos alojados en el directorio.
 
 ```bash
-python train.py convert_dataturks_to_train_file \
+python src/ia2/ia2/train.py convert_dataturks_to_train_file \
   <input_files_path> \
   <entities> \
   <output_file_path> \
@@ -211,7 +220,7 @@ python train.py convert_dataturks_to_train_file \
 Asume la existencia de un set de información etiquetada con Dataturks en el directorio data/raw/validation.
 
 ```bash
-python train.py convert_dataturks_to_train_file \
+python src/ia2/ia2/train.py convert_dataturks_to_train_file \
   "data/raw/validation" \
   "PER, LOC, DIRECCIÓN" \
   "data/unified/validation.json"
