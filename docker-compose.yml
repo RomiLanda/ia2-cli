@@ -10,6 +10,7 @@ services:
                 - PYTHON_VERSION=${PYTHON_VERSION}
                 - PIP_VERSION=${PIP_VERSION}
                 - CUDA_VERSION=${CUDA_VERSION}
+                - TORCH_VERSION=${TORCH_VERSION}
         volumes:
             - $PWD/${DATASETS_VOLUME_MOUNT}
             - $PWD/${RESOURCES_VOLUME_MOUNT}

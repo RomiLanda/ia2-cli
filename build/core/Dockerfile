@@ -6,6 +6,7 @@ ENV DEBIAN_FRONTEND noninteractive
 ARG PIP_VERSION
 ARG PYTHON_VERSION
 ARG CUDA_VERSION
+ARG TORCH_VERSION
 
 # OS packages
 RUN sed -i 's/# deb-src/deb-src/' /etc/apt/sources.list \
@@ -50,7 +51,7 @@ RUN wget https://github.com/pypa/pip/archive/refs/tags/${PIP_VERSION}.zip \
 
 # Install pytorch
 RUN --mount=type=cache,target=/root/.cache \
-    pip install torch==1.11.0+${CUDA_VERSION} \
+    pip install torch==${TORCH_VERSION}+${CUDA_VERSION} \
     -f https://download.pytorch.org/whl/cu113/torch_stable.html
 
 #Install Spacy
