@@ -5,6 +5,7 @@ ENV DEBIAN_FRONTEND noninteractive
 
 ARG PIP_VERSION
 ARG PYTHON_VERSION
+ARG CUDA_VERSION
 
 # OS packages
 RUN sed -i 's/# deb-src/deb-src/' /etc/apt/sources.list \
@@ -49,12 +50,12 @@ RUN wget https://github.com/pypa/pip/archive/refs/tags/${PIP_VERSION}.zip \
 
 # Install pytorch
 RUN --mount=type=cache,target=/root/.cache \
-    pip install torch==1.11.0+cu113 \
+    pip install torch==1.11.0+${CUDA_VERSION} \
     -f https://download.pytorch.org/whl/cu113/torch_stable.html
 
 #Install Spacy
 RUN pip install -U pip setuptools wheel \
-    pip install -U spacy[cu113] \
+    pip install -U spacy[${CUDA_VERSION}] \
     pip install spacy-transformers \
     pip install cupy-wheel
 
