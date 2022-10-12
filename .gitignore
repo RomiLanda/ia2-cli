@@ -15,9 +15,20 @@ src/*/pyproject.toml
 resources/outputs/*
 !resources/outputs/.gitkeep
 
+resources/ouputs/displacy/*
+!resources/outputs/displacy/.gitkeep
+
+resources/ouputs/metrics/*
+!resources/ouputs/metrics/.gitkeep
+
 resources/dataset/*
-resources/datasets/unified/*
 !resources/dataset/.gitkeep
+
+resources/datasets/unified/*
+!resources/datasets/unified/.gitkeep
+
+resources/datasets/docbin/*
+!resources/datasets/docbin/.gitkeep
 
 src/ia2/ia2/models/*
 !models/.gitkeep
