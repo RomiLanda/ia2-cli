@@ -11,6 +11,7 @@ services:
                 - PIP_VERSION=${PIP_VERSION}
                 - CUDA_VERSION=${CUDA_VERSION}
                 - TORCH_VERSION=${TORCH_VERSION}
+                - TEST_MODEL_FILE=${TEST_MODEL_FILE}
         volumes:
             - $PWD/${DATASETS_VOLUME_MOUNT}
             - $PWD/${RESOURCES_VOLUME_MOUNT}
@@ -51,6 +52,17 @@ services:
         volumes:
             - $PWD/${SRC_VOLUME_MOUNT}
             - $PWD/${NOTEBOOKS_VOLUME_MOUNT}
+            - $PWD/${RESOURCES_VOLUME_MOUNT}
+        env_file:
+            - .env
+    ia2-core-test-cpu:
+        network_mode: host
+        image: ${CORE_IMAGE}
+        command: ${TEST_COMMAND}
+        container_name: ia2-core-test-cpu
+        shm_size: '8gb'
+        volumes:
+            - $PWD/${TEST_VOLUME_MOUNT}
             - $PWD/${RESOURCES_VOLUME_MOUNT}
         env_file:
             - .env

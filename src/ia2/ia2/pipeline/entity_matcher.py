@@ -328,10 +328,11 @@ class EntityMatcher(object):
         return doc
 
 
+@Language.factory("articles_matcher")
 class ArticlesMatcher(object):
     name = "articles_matcher"
 
-    def __init__(self, nlp):
+    def __init__(self, nlp: Language, name: str = "articles_matcher"):
         article_patterns = self.get_article_patterns()
         self.matcher = GenericMatcher(nlp, article_patterns)
 

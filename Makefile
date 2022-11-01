@@ -15,3 +15,7 @@ jupyter-run: jupyter-build
 
 jupyter-run-cpu: jupyter-build
 	docker-compose up ia2-jupyter-cpu
+
+core-test-cpu-all: export TEST_COMMAND=$(BASE_TEST_COMMAND)
+core-test-cpu-all: core-build
+	docker-compose run ia2-core-test-cpu
