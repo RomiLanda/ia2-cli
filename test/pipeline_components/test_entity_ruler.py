@@ -48,7 +48,9 @@ class EntityRulerTest(unittest.TestCase):
             doc = self.nlp(test_sentence.format(filename))
 
             for d in doc.ents:
-                a_like_archivo_span = Span(doc, target_span[1], target_span[2], "NOMBRE_ARCHIVO")
+                a_like_archivo_span = Span(
+                    doc, target_span[1], target_span[2], "NOMBRE_ARCHIVO"
+                )
                 self.assertEqual(a_like_archivo_span.text, target_span[0])
                 self.assertIn(a_like_archivo_span, doc.ents)
 

@@ -1,6 +1,6 @@
 import unittest
 
-from pipeline_components.entity_matcher import (
+from ia2.pipeline.entity_matcher import (
     page_first_left_nbors,
     page_second_left_nbors,
     measure_unit_first_right_nbors,
@@ -22,13 +22,19 @@ class EntityMatcherTest(unittest.TestCase):
                 84,
                 "cuatrocientos noventa y tres millones quinientos cuarenta y tres mil seiscientos sesenta y seis",
             ),
-            (97, 106, "novecientos noventa y nueve mil cuatrocientos sesenta y seis"),
+            (
+                97,
+                106,
+                "novecientos noventa y nueve mil cuatrocientos sesenta y seis",
+            ),
         ]
         self.test_sentence = "inciso trece, apartado de tres mil ochocientos noventa y nueve. En cuanto a las cauciones, en mil trecientas doce oportunidades solicitan se le imponga a ECorp, en virtud de sus 134 condiciones personales, una caución real de cien mil setenta y cinco pesos ($ 100.020.-) para asegurar siete veces su comparecencia al proceso. De la misma manera se exige respaldo por los cuatrocientos noventa y tres millones quinientos cuarenta y tres mil seiscientos sesenta y seis inmuebles adquiridos en la última década, período en el cual se registraron novecientos noventa y nueve mil cuatrocientos sesenta y seis denuncias relacionadas."
         pipeline = ["entity_ruler", "entity_matcher"]
         self.nlp = ModelSetup(pipeline)
 
-    def test_an_entity_matcher_does_not_clean_num_entities_when_no_nbors_match(self):
+    def test_an_entity_matcher_does_not_clean_num_entities_when_no_nbors_match(
+        self,
+    ):
         target_span = ("veinte", 6, 7)
         test_sentece = "En el marco del aniversario número {} del club queremos destacar los trabajos y los procesos de construcción que se fueron haciendo."
         doc = self.nlp(test_sentece.format(target_span[0]))
