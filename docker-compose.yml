@@ -11,6 +11,7 @@ services:
                 - PIP_VERSION=${PIP_VERSION}
                 - CUDA_VERSION=${CUDA_VERSION}
                 - TORCH_VERSION=${TORCH_VERSION}
+                - TESSERACT_VERSION=${TESSERACT_VERSION}
                 - TEST_MODEL_FILE=${TEST_MODEL_FILE}
         volumes:
             - $PWD/${DATASETS_VOLUME_MOUNT}
