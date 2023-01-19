@@ -38,3 +38,6 @@ src/ia2/ia2/models/*
 
 src/ia2/ia2/logs/*
 !logs/.gitkeep
+
+src/ia2/ia2/deploy/*
+!deploy/.gitkeep
