@@ -1083,19 +1083,18 @@ class SpacyUtils:
         nlp.meta["version"] = str(model_version)
         pipelines_tag = "todas"
 
-        ruler = EntityRuler(nlp, overwrite_ents=True)
+        ruler = nlp.add_pipe("entity_ruler", before="ner")
         ruler.add_patterns(fetch_ruler_patterns_by_tag(pipelines_tag))
-        nlp.add_pipe(ruler)
 
         entity_matcher = EntityMatcher(
             nlp,
             matcher_patterns,
             after_callbacks=[cb(nlp) for cb in fetch_cb_by_tag(pipelines_tag)],
         )
-        nlp.add_pipe(entity_matcher)
+        entity_matcher = nlp.add_pipe("matcher")
 
         entity_custom = EntityCustom(nlp, pipelines_tag)
-        nlp.add_pipe(entity_custom)
+        nlp.add_pipe("matcher_custom")
 
         nlp.to_disk(model_path)
         logger.info(

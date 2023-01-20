@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 setup(
     name="ia2",
     packages=find_packages(),
-    version="1.0.0",
+    version="1.1.0",
     description="Anonomiza",
     author="Romi",
     author_email="romailanda@gmail.com",
