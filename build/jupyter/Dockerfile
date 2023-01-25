@@ -9,6 +9,9 @@ RUN sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/inst
 ENV SHELL=/usr/bin/zsh
 RUN chsh root -s $SHELL
 
+# Add PYTHONPATH. 
+ENV PYTHONPATH=/src/ia2/
+
 # Therminal dark theme
 RUN mkdir -p ~/.jupyter/lab/user-settings/@jupyterlab/terminal-extension \
     && echo '{"theme": "dark"}' > ~/.jupyter/lab/user-settings/@jupyterlab/terminal-extension/plugin.jupyterlab-settings
