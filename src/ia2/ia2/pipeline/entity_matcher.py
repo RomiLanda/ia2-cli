@@ -245,7 +245,7 @@ matcher_patterns = [
 ]
 
 
-@Language.factory("matcher")
+@Language.factory("EntityMatcher")
 class EntityMatcher(object):
     """
     EntityMatcher: Detects and labels "NUM" entities. Matches their context to
@@ -328,7 +328,7 @@ class EntityMatcher(object):
         return doc
 
 
-@Language.factory("articles_matcher")
+@Language.factory("ArticlesMatcher")
 class ArticlesMatcher(object):
     name = "articles_matcher"
 

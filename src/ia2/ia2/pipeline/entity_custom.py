@@ -448,7 +448,7 @@ def process_fns(acc, data):
     return acc
 
 
-@Language.factory("matcher_custom")
+@Language.factory("EntityCustom")
 class EntityCustom(object):
     name = "entity_custom"
 
