@@ -1,17 +1,15 @@
 import os
 import spacy
-from spacy.pipeline import EntityRuler
-from pipeline_components.entity_ruler import fetch_ruler_patterns_by_tag
-from pipeline_components.entity_custom import EntityCustom
-from pipeline_components.entity_matcher import (
-    EntityMatcher,
-    matcher_patterns,
-)
+from ia2.pipeline.entity_ruler import fetch_ruler_patterns_by_tag
 
 
 class ModelSetup:
     def __new__(self, pipe_names=[]):
-        self.valid_pipe_names = ["entity_ruler", "entity_matcher", "entity_custom"]
+        self.valid_pipe_names = [
+            "entity_ruler",
+            "entity_matcher",
+            "entity_custom",
+        ]
         self.remove = self.valid_pipe_names
         self.pipe_names = pipe_names
         self.model_path = self.get_model_path()
@@ -48,16 +46,13 @@ class ModelSetup:
         self.remove_pipelines(self)
 
         if "entity_ruler" in self.pipe_names:
-            ruler = EntityRuler(self.nlp, overwrite_ents=True)
+            ruler = self.nlp.add_pipe("entity_ruler")
             ruler.add_patterns(self.ruler_patterns)
-            self.nlp.add_pipe(ruler)
+            self.nlp
 
         if "entity_matcher" in self.pipe_names:
-            entity_matcher = EntityMatcher(self.nlp, matcher_patterns)
-            self.nlp.add_pipe(entity_matcher)
-
+            self.nlp.add_pipe("matcher")
         if "entity_custom" in self.pipe_names:
-            entity_custom = EntityCustom(self.nlp)
-            self.nlp.add_pipe(entity_custom)
+            self.nlp.add_pipe("matcher_custom")
 
         return self.nlp

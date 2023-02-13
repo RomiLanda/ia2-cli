@@ -1,4 +1,4 @@
-from pipeline_components.entity_custom import (
+from ia2.pipeline.entity_custom import (
     EntityCustom,
     law_left_nbors,
     period_rules,
@@ -12,7 +12,7 @@ from pipeline_components.entity_custom import (
     number_abreviated_indicator,
     expediente_indicator,
 )
-from pipeline_components.entity_matcher import (
+from ia2.pipeline.entity_matcher import (
     EntityMatcher,
     matcher_patterns,
     page_first_left_nbors,
@@ -23,7 +23,6 @@ from spacy.tokens import Span
 from test.support.env_case import ModelSetup
 
 import itertools
-import spacy
 import unittest
 
 
@@ -72,13 +71,23 @@ class EntityCustomTest(unittest.TestCase):
                 "Si se tratare de un instrumento público y con prisión de tres mil ochocientos noventa y nueve {}, si se tratare de un instrumento privado",
             ),
         ]
-        for target_span_text, target_span_start, target_span_end, base_test_sentece_text in base_test_senteces:
+        for (
+            target_span_text,
+            target_span_start,
+            target_span_end,
+            base_test_sentece_text,
+        ) in base_test_senteces:
             for nbor_word in period_rules:
                 test_sentence = base_test_sentece_text.format(nbor_word)
                 doc = self.nlp(test_sentence)
                 # Checks that the text is tokenized the way we expect, so that we
                 # can correctly pick up a span with text "seis {nbor}"
-                a_like_num_span = Span(doc, target_span_start, target_span_end + 1, label="PERIODO")
+                a_like_num_span = Span(
+                    doc,
+                    target_span_start,
+                    target_span_end + 1,
+                    label="PERIODO",
+                )
                 expected_period = f"{target_span_text} {nbor_word}"
                 self.assertEqual(a_like_num_span.text, expected_period)
                 # Asserts a PERIODO span exists in the document entities
@@ -106,13 +115,20 @@ class EntityCustomTest(unittest.TestCase):
 
         test_sentences = list(itertools.product(nums, base_test_senteces))
 
-        for (law_num, (target_span_start, target_span_end, base_test_sentece_text)) in test_sentences:
+        for (
+            law_num,
+            (target_span_start, target_span_end, base_test_sentece_text),
+        ) in test_sentences:
             for left_nbor_word in law_left_nbors:
-                test_sentence = base_test_sentece_text.format(law_nbor=left_nbor_word, law_num=law_num)
+                test_sentence = base_test_sentece_text.format(
+                    law_nbor=left_nbor_word, law_num=law_num
+                )
                 doc = self.nlp(test_sentence)
                 # Checks that the text is tokenized the way we expect, so that we
                 # can correctly pick up a span with text "seis {nbor}"
-                expected_span = Span(doc, target_span_start, target_span_end, label="LEY")
+                expected_span = Span(
+                    doc, target_span_start, target_span_end, label="LEY"
+                )
                 self.assertEqual(expected_span.text, law_num)
                 # Asserts a PERIODO span exists in the document entities
                 self.assertIn(expected_span, doc.ents)
@@ -144,13 +160,20 @@ class EntityCustomTest(unittest.TestCase):
 
         test_sentences = list(itertools.product(locs, base_test_senteces))
 
-        for (left_nbor_word, (target_span_start, target_span_end, base_test_sentece_text)) in test_sentences:
+        for (
+            left_nbor_word,
+            (target_span_start, target_span_end, base_test_sentece_text),
+        ) in test_sentences:
 
-            test_sentence = base_test_sentece_text.format(loc_nbor=left_nbor_word)
+            test_sentence = base_test_sentece_text.format(
+                loc_nbor=left_nbor_word
+            )
 
             doc = self.nlp(test_sentence)
 
-            expected_span = Span(doc, target_span_start, target_span_end, label="LOC")
+            expected_span = Span(
+                doc, target_span_start, target_span_end, label="LOC"
+            )
             # Check if span detected in doc.ents
             self.assertIn(expected_span, doc.ents)
 
@@ -165,7 +188,13 @@ class EntityCustomTest(unittest.TestCase):
                 12,
                 "En las personas de  Juan Antonio Barrio {loc_name} y mariela barrio {loc_name} se encontraron estupefacientes ",
             ),
-            (6, 8, 10, 12, "Acompañada de otras personas como Roxana villa {loc_name}, Martín Villa {loc_name}  "),
+            (
+                6,
+                8,
+                10,
+                12,
+                "Acompañada de otras personas como Roxana villa {loc_name}, Martín Villa {loc_name}  ",
+            ),
         ]
 
         test_sentences = list(itertools.product(locs, base_test_sentences))
@@ -180,12 +209,21 @@ class EntityCustomTest(unittest.TestCase):
             ),
         ) in test_sentences:
 
-            test_sentence = base_test_sentece_text.format(loc_name=right_loc_word)
+            test_sentence = base_test_sentece_text.format(
+                loc_name=right_loc_word
+            )
 
             doc = self.nlp(test_sentence)
 
-            expected_span = Span(doc, target_span_start, target_span_end, label="LOC")
-            another_expected_span = Span(doc, another_target_span_start, another_target_span_end, label="LOC")
+            expected_span = Span(
+                doc, target_span_start, target_span_end, label="LOC"
+            )
+            another_expected_span = Span(
+                doc,
+                another_target_span_start,
+                another_target_span_end,
+                label="LOC",
+            )
             # Filtrado solo entidades del tipo LOC
             # onlyLOCents = list(filter(lambda ent: ent.label_ == "LOC", doc.ents))
             self.assertNotIn(expected_span, doc.ents)
@@ -219,20 +257,33 @@ class EntityCustomTest(unittest.TestCase):
             ),
         ]
 
-        for target_span_text, target_span_start, target_span_end, base_test_sentece_text in base_test_senteces:
+        for (
+            target_span_text,
+            target_span_start,
+            target_span_end,
+            base_test_sentece_text,
+        ) in base_test_senteces:
             for nbor_word in license_plate_left_nbor:
                 test_sentence = base_test_sentece_text.format(
-                    license_plate_nbor=nbor_word, license_plate=target_span_text
+                    license_plate_nbor=nbor_word,
+                    license_plate=target_span_text,
                 )
                 doc = self.nlp(test_sentence)
                 # Checks that the text is tokenized the way we expect, so that we
                 # can correctly pick up a span with text "{nbor} AAA 410"
-                expected_span = Span(doc, target_span_start, target_span_end, label="PATENTE_DOMINIO")
+                expected_span = Span(
+                    doc,
+                    target_span_start,
+                    target_span_end,
+                    label="PATENTE_DOMINIO",
+                )
                 self.assertEqual(expected_span.text, target_span_text)
                 # Asserts a PATENTE_DOMINIO span exists in the document entities
                 self.assertIn(expected_span, doc.ents)
 
-    def test_a_custom_entity_pipeline_removes_articles_marked_as_license_plates_entities(self):
+    def test_a_custom_entity_pipeline_removes_articles_marked_as_license_plates_entities(
+        self,
+    ):
         base_test_senteces = [
             (
                 "174bis",
@@ -242,12 +293,21 @@ class EntityCustomTest(unittest.TestCase):
             ),
         ]
 
-        for target_span_text, target_span_start, target_span_end, base_test_sentece_text in base_test_senteces:
-            test_sentence = base_test_sentece_text.format(article_marked_as_license_plate=target_span_text)
+        for (
+            target_span_text,
+            target_span_start,
+            target_span_end,
+            base_test_sentece_text,
+        ) in base_test_senteces:
+            test_sentence = base_test_sentece_text.format(
+                article_marked_as_license_plate=target_span_text
+            )
             doc = self.nlp(test_sentence)
             # Checks that the text is tokenized the way we expect, so that we
             # can correctly pick up a span with text "174bis"
-            expected_span = Span(doc, target_span_start, target_span_end, label="ART")
+            expected_span = Span(
+                doc, target_span_start, target_span_end, label="ART"
+            )
             self.assertEqual(expected_span.text, target_span_text)
             # Asserts a ART span exists in the document entities
             self.assertNotIn(expected_span, doc.ents)
@@ -310,11 +370,18 @@ class EntityCustomTest(unittest.TestCase):
             ),
         ]
 
-        for address, target_span_start, target_span_end, base_test_sentece_text in base_test_sentences:
+        for (
+            address,
+            target_span_start,
+            target_span_end,
+            base_test_sentece_text,
+        ) in base_test_sentences:
             for first_left_nbor_word in address_first_left_nbors:
                 test_sentence = base_test_sentece_text.format(address=address)
                 doc = self.nlp(test_sentence)
-                expected_span = Span(doc, target_span_start, target_span_end, label="DIRECCIÓN")
+                expected_span = Span(
+                    doc, target_span_start, target_span_end, label="DIRECCIÓN"
+                )
                 self.assertEqual(expected_span.text, address)
                 # Asserts a DIRECCIÓN span exists in the document entities
                 # print(f"doc.ents {doc.ents}")
@@ -378,7 +445,12 @@ class EntityCustomTest(unittest.TestCase):
             ),
         ]
 
-        for target_span_text, target_span_start, target_span_end, base_test_sentece_text in base_test_senteces:
+        for (
+            target_span_text,
+            target_span_start,
+            target_span_end,
+            base_test_sentece_text,
+        ) in base_test_senteces:
             for nbor_word in actuacion_nbor_token:
                 test_sentence = base_test_sentece_text.format(
                     actuacion_nbor_token=actuacion_nbor_token,
@@ -386,7 +458,12 @@ class EntityCustomTest(unittest.TestCase):
                     nro_actuacion=target_span_text,
                 )
                 doc = self.nlp(test_sentence)
-                expected_span = Span(doc, target_span_start, target_span_end, label="NUM_ACTUACIÓN")
+                expected_span = Span(
+                    doc,
+                    target_span_start,
+                    target_span_end,
+                    label="NUM_ACTUACIÓN",
+                )
                 self.assertEqual(expected_span.text, target_span_text)
                 self.assertIn(expected_span, doc.ents)
 
@@ -412,7 +489,12 @@ class EntityCustomTest(unittest.TestCase):
             ),
         ]
 
-        for target_span_text, target_span_start, target_span_end, base_test_sentece_text in base_test_senteces:
+        for (
+            target_span_text,
+            target_span_start,
+            target_span_end,
+            base_test_sentece_text,
+        ) in base_test_senteces:
             for nbor_word in expediente_indicator:
                 test_sentence = base_test_sentece_text.format(
                     expediente_indicator=expediente_indicator,
@@ -420,7 +502,12 @@ class EntityCustomTest(unittest.TestCase):
                     nro_expediente=target_span_text,
                 )
                 doc = self.nlp(test_sentence)
-                expected_span = Span(doc, target_span_start, target_span_end, label="NUM_EXPEDIENTE")
+                expected_span = Span(
+                    doc,
+                    target_span_start,
+                    target_span_end,
+                    label="NUM_EXPEDIENTE",
+                )
                 self.assertEqual(expected_span.text, target_span_text)
                 self.assertIn(expected_span, doc.ents)
 

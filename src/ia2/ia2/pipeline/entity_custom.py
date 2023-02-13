@@ -1,7 +1,8 @@
 from spacy.tokens import Span
 from spacy.util import filter_spans
 import re
-from functools import partial, reduce
+from functools import partial
+from spacy import Language
 
 period_rules = [
     "segundo",
@@ -113,12 +114,19 @@ phone_text = ["telefono", "tel", "cel"]
 
 
 def is_age(token):
-    return token.like_num and token.nbor(1).text == age_right_token and age_text_in_token in token.sent.text
+    return (
+        token.like_num
+        and token.nbor(1).text == age_right_token
+        and age_text_in_token in token.sent.text
+    )
 
 
 def is_caseNumber(token):
     return token.like_num and (
-        (token.nbor(-1).lower_ == number_abreviated_indicator and token.nbor(-2).lower_ == case_second_left_token)
+        (
+            token.nbor(-1).lower_ == number_abreviated_indicator
+            and token.nbor(-2).lower_ == case_second_left_token
+        )
         or token.nbor(-1).lower_ == case_first_left_token
     )
 
@@ -140,7 +148,10 @@ def is_actuacionNumber(token):
 def is_expedienteNumber(token):
     return (
         token.nbor(-1).lower_ == number_abreviated_indicator
-        and (token.nbor(-3).lower_ == expediente_indicator or token.nbor(-2).lower_ == expediente_indicator)
+        and (
+            token.nbor(-3).lower_ == expediente_indicator
+            or token.nbor(-2).lower_ == expediente_indicator
+        )
     ) or (token.like_num and token.nbor(-2).lower_ == expediente_indicator)
 
 
@@ -251,7 +262,10 @@ def is_phone(ent):
         or first_token.nbor(-3).lemma_ in phone_lemma
         or first_token.nbor(-1).text in phone_text
         or first_token.nbor(-2).text in phone_text
-        or (first_token.nbor(-1).text == "(" and first_token.nbor(1).text == ")")
+        or (
+            first_token.nbor(-1).text == "("
+            and first_token.nbor(1).text == ")"
+        )
     )
 
 
@@ -266,13 +280,27 @@ def is_token_in_x_left_pos(token, pos, nbors):
 def is_address(ent):
     first_token = ent[0]
     last_token = ent[-1]
-    address_1_tokens_to_left = is_token_in_x_left_pos(first_token, 1, address_first_left_nbors)
-    address_2_tokens_to_left_first_nbors = is_token_in_x_left_pos(first_token, 2, address_first_left_nbors)
-    address_2_tokens_to_left_second_nbors = is_token_in_x_left_pos(first_token, 2, address_second_left_nbors)
-    address_3_tokens_to_left_first_nbors = is_token_in_x_left_pos(first_token, 3, address_first_left_nbors)
-    address_3_tokens_to_left_second_nbors = is_token_in_x_left_pos(first_token, 3, address_second_left_nbors)
-    address_4_tokens_to_left_first_nbors = is_token_in_x_left_pos(first_token, 4, address_first_left_nbors)
-    address_4_tokens_to_left_second_nbors = is_token_in_x_left_pos(first_token, 4, address_second_left_nbors)
+    address_1_tokens_to_left = is_token_in_x_left_pos(
+        first_token, 1, address_first_left_nbors
+    )
+    address_2_tokens_to_left_first_nbors = is_token_in_x_left_pos(
+        first_token, 2, address_first_left_nbors
+    )
+    address_2_tokens_to_left_second_nbors = is_token_in_x_left_pos(
+        first_token, 2, address_second_left_nbors
+    )
+    address_3_tokens_to_left_first_nbors = is_token_in_x_left_pos(
+        first_token, 3, address_first_left_nbors
+    )
+    address_3_tokens_to_left_second_nbors = is_token_in_x_left_pos(
+        first_token, 3, address_second_left_nbors
+    )
+    address_4_tokens_to_left_first_nbors = is_token_in_x_left_pos(
+        first_token, 4, address_first_left_nbors
+    )
+    address_4_tokens_to_left_second_nbors = is_token_in_x_left_pos(
+        first_token, 4, address_second_left_nbors
+    )
 
     is_address_from_PER = ent.label_ in ["PER"] and (
         address_1_tokens_to_left
@@ -301,7 +329,10 @@ def get_aditional_left_tokens_for_address(ent):
         token = ent[0]
         if token.nbor(-1).lower_ in address_first_left_nbors:
             return 1
-        if token.nbor(-2).lower_ in address_first_left_nbors or token.nbor(-2).lower_ in address_second_left_nbors:
+        if (
+            token.nbor(-2).lower_ in address_first_left_nbors
+            or token.nbor(-2).lower_ in address_second_left_nbors
+        ):
             return 2
         if token.nbor(-3).lower_ in address_first_left_nbors:
             return 3
@@ -329,10 +360,14 @@ def get_entity_to_remove_if_contained_by(ent_start, ent_end, list_entities):
 def generate_address_span(ent, new_ents, doc):
     address_token = get_aditional_left_tokens_for_address(ent)
     ent_start = ent.start - address_token
-    ent_to_remove = get_entity_to_remove_if_contained_by(ent_start, ent.end, new_ents)
+    ent_to_remove = get_entity_to_remove_if_contained_by(
+        ent_start, ent.end, new_ents
+    )
     if ent_to_remove:
         if (ent.end - ent_start) > (ent_to_remove.end - ent_to_remove.start):
-            new_ents = remove_wrong_labeled_entity_span(new_ents, ent_to_remove)
+            new_ents = remove_wrong_labeled_entity_span(
+                new_ents, ent_to_remove
+            )
             return Span(doc, ent_start, ent.end, label="DIRECCIÓN")
 
     return Span(doc, ent_start, ent.end, label="DIRECCIÓN")
@@ -375,7 +410,9 @@ def get_start_end_license_plate(ent):
     token = ent[0]
     first_left_token = token.nbor(-1).lower_
     first_right_token = token.nbor(1).lower_
-    if len(ent.text) != 3:  # this means it is not an "incomplete" license plate
+    if (
+        len(ent.text) != 3
+    ):  # this means it is not an "incomplete" license plate
         return ent.start, ent.end
     if len(first_left_token) == 3 and isinstance(first_left_token, str):
         # 3 letras - 3 núm
@@ -394,7 +431,13 @@ def get_start_end_license_plate(ent):
 
 
 def remove_wrong_labeled_entity_span(ent_list, ent_to_remove):
-    return [ent for ent in ent_list if not (ent_to_remove.start == ent.start and ent_to_remove.end == ent.end)]
+    return [
+        ent
+        for ent in ent_list
+        if not (
+            ent_to_remove.start == ent.start and ent_to_remove.end == ent.end
+        )
+    ]
 
 
 def process_fns(acc, data):
@@ -405,10 +448,13 @@ def process_fns(acc, data):
     return acc
 
 
+@Language.factory("EntityCustom")
 class EntityCustom(object):
     name = "entity_custom"
 
-    def __init__(self, nlp, tag="todas"):
+    def __init__(
+        self, nlp: Language, name: str = "entity_custom", tag="todas"
+    ):
         self.nlp = nlp
         self.tag = tag
         self.tagged_fns_token = [
@@ -452,7 +498,9 @@ class EntityCustom(object):
             (
                 partial(is_from_first_tokens, token.i),
                 partial(is_caseNumber, token),
-                partial(Span, self.doc, token.i + 0, token.i + 1, label="NUM_CAUSA"),
+                partial(
+                    Span, self.doc, token.i + 0, token.i + 1, label="NUM_CAUSA"
+                ),
             ),
         )
 
@@ -462,7 +510,9 @@ class EntityCustom(object):
             (
                 partial(is_last, self.doc, token.i),
                 partial(is_age, token),
-                partial(Span, self.doc, token.i + 0, token.i + 1, label="EDAD"),
+                partial(
+                    Span, self.doc, token.i + 0, token.i + 1, label="EDAD"
+                ),
             ),
         )
 
@@ -472,7 +522,9 @@ class EntityCustom(object):
             (
                 partial(is_from_first_tokens, token.i),
                 partial(is_cuijNumber, token),
-                partial(Span, self.doc, token.i + 0, token.i + 1, label="NUM_CUIJ"),
+                partial(
+                    Span, self.doc, token.i + 0, token.i + 1, label="NUM_CUIJ"
+                ),
             ),
         )
 
@@ -482,7 +534,13 @@ class EntityCustom(object):
             (
                 partial(is_from_first_tokens, token.i),
                 partial(is_actuacionNumber, token),
-                partial(Span, self.doc, token.i + 0, token.i + 1, label="NUM_ACTUACIÓN"),
+                partial(
+                    Span,
+                    self.doc,
+                    token.i + 0,
+                    token.i + 1,
+                    label="NUM_ACTUACIÓN",
+                ),
             ),
         )
 
@@ -492,7 +550,13 @@ class EntityCustom(object):
             (
                 partial(is_from_first_tokens, token.i),
                 partial(is_expedienteNumber, token),
-                partial(Span, self.doc, token.i + 0, token.i + 1, label="NUM_EXPEDIENTE"),
+                partial(
+                    Span,
+                    self.doc,
+                    token.i + 0,
+                    token.i + 1,
+                    label="NUM_EXPEDIENTE",
+                ),
             ),
         )
 
@@ -512,7 +576,9 @@ class EntityCustom(object):
             (
                 partial(is_from_first_tokens, ent.start),
                 partial(is_law, ent),
-                partial(Span, self.doc, ent.start + 0, ent.end + 0, label="LEY"),
+                partial(
+                    Span, self.doc, ent.start + 0, ent.end + 0, label="LEY"
+                ),
             ),
         )
 
@@ -522,7 +588,9 @@ class EntityCustom(object):
             (
                 partial(partial(is_last, self.doc, ent.start)),
                 partial(is_period, ent),
-                partial(Span, self.doc, ent.start + 0, ent.end + 1, label="PERIODO"),
+                partial(
+                    Span, self.doc, ent.start + 0, ent.end + 1, label="PERIODO"
+                ),
             ),
         )
 
@@ -532,7 +600,9 @@ class EntityCustom(object):
             (
                 partial(is_from_first_tokens, ent.start),
                 partial(is_judge, ent),
-                partial(Span, self.doc, ent.start + 0, ent.end + 0, label="JUEZX"),
+                partial(
+                    Span, self.doc, ent.start + 0, ent.end + 0, label="JUEZX"
+                ),
             ),
         )
 
@@ -542,7 +612,13 @@ class EntityCustom(object):
             (
                 partial(is_from_first_tokens, ent.start),
                 partial(is_secretary, ent),
-                partial(Span, self.doc, ent.start + 0, ent.end + 0, label="SECRETARIX"),
+                partial(
+                    Span,
+                    self.doc,
+                    ent.start + 0,
+                    ent.end + 0,
+                    label="SECRETARIX",
+                ),
             ),
         )
 
@@ -552,7 +628,9 @@ class EntityCustom(object):
             (
                 partial(is_from_first_tokens, ent.start),
                 partial(is_prosecutor, ent),
-                partial(Span, self.doc, ent.start + 0, ent.end + 0, label="FISCAL"),
+                partial(
+                    Span, self.doc, ent.start + 0, ent.end + 0, label="FISCAL"
+                ),
             ),
         )
 
@@ -562,7 +640,13 @@ class EntityCustom(object):
             (
                 partial(is_from_first_tokens, ent.start),
                 partial(is_ombuds_person, ent),
-                partial(Span, self.doc, ent.start + 0, ent.end + 0, label="DEFENSORX"),
+                partial(
+                    Span,
+                    self.doc,
+                    ent.start + 0,
+                    ent.end + 0,
+                    label="DEFENSORX",
+                ),
             ),
         )
 
@@ -572,7 +656,9 @@ class EntityCustom(object):
             (
                 partial(is_from_first_tokens, ent.start),
                 partial(is_ip_address, ent),
-                partial(Span, self.doc, ent.start + 0, ent.end + 0, label="NUM_IP"),
+                partial(
+                    Span, self.doc, ent.start + 0, ent.end + 0, label="NUM_IP"
+                ),
             ),
         )
 
@@ -582,7 +668,13 @@ class EntityCustom(object):
             (
                 partial(is_from_first_tokens, ent.start),
                 partial(is_phone, ent),
-                partial(Span, self.doc, ent.start + 0, ent.end + 0, label="NUM_TELÉFONO"),
+                partial(
+                    Span,
+                    self.doc,
+                    ent.start + 0,
+                    ent.end + 0,
+                    label="NUM_TELÉFONO",
+                ),
             ),
         )
 
@@ -592,31 +684,49 @@ class EntityCustom(object):
             (
                 partial(is_from_first_tokens, ent.start),
                 partial(is_accused_or_advisor, ent),
-                partial(Span, self.doc, ent.start + 0, ent.end + 0, label="PER"),
+                partial(
+                    Span, self.doc, ent.start + 0, ent.end + 0, label="PER"
+                ),
             ),
         )
 
     def direccion(self, ent):
         if not is_from_first_tokens(ent.start) and is_address(ent):
-            self.new_ents.append(generate_address_span(ent, self.new_ents, self.doc))
+            self.new_ents.append(
+                generate_address_span(ent, self.new_ents, self.doc)
+            )
         return []
 
     def patente_dominio(self, ent):
         new_ents = []
-        if not is_from_first_tokens(ent.start) and could_be_an_article(ent) and ent.label_ == "PATENTE_DOMINIO":
-            self.doc.ents = remove_wrong_labeled_entity_span(self.doc.ents, ent)
+        if (
+            not is_from_first_tokens(ent.start)
+            and could_be_an_article(ent)
+            and ent.label_ == "PATENTE_DOMINIO"
+        ):
+            self.doc.ents = remove_wrong_labeled_entity_span(
+                self.doc.ents, ent
+            )
 
         if not is_from_first_tokens(ent.start) and is_license_plate(ent):
             start, end = get_start_end_license_plate(ent)
-            new_ents.append(Span(self.doc, start, end, label="PATENTE_DOMINIO"))
+            new_ents.append(
+                Span(self.doc, start, end, label="PATENTE_DOMINIO")
+            )
         return new_ents
 
     def fecha_resolucion(self, ent):
         new_ents = []
         # Modifica FECHA a FECHA_RESOLUCION: solo la primera vez, si esta el token entre 3 y 100
-        if not self.find_fecha_resolucion and ent.label_ in ["FECHA"] and is_between_tokens(ent.start, 3, 100):
+        if (
+            not self.find_fecha_resolucion
+            and ent.label_ in ["FECHA"]
+            and is_between_tokens(ent.start, 3, 100)
+        ):
             self.find_fecha_resolucion = True
-            new_ents.append(Span(self.doc, ent.start, ent.end, label="FECHA_RESOLUCION"))
+            new_ents.append(
+                Span(self.doc, ent.start, ent.end, label="FECHA_RESOLUCION")
+            )
         return new_ents
 
     def new_ents_by_ents(self):

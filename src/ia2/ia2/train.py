@@ -1,6 +1,5 @@
 import fire
 import warnings
-import pickle
 import logging
 import json
 import random
@@ -11,16 +10,16 @@ import sys
 import spacy
 import time
 import shutil
-import utils
+import ia2.utils
 import functools
 from spacy.util import minibatch, compounding, decaying
 from spacy.scorer import Scorer
-from spacy.gold import GoldParse
+from spacy.training import Example, offsets_to_biluo_tags
 from spacy.cli import package
 import srsly
 from os import listdir
 from os.path import isfile, join
-from callbacks import (
+from ia2.callbacks import (
     print_scores_on_epoch,
     save_best_model,
     reduce_lr_on_plateau,
@@ -33,23 +32,24 @@ from callbacks import (
 )
 
 from spacy.pipeline import EntityRuler
-from pipeline_components.entity_ruler import fetch_ruler_patterns_by_tag
-from pipeline_components.entity_matcher import (
-    ArticlesMatcher,
+from ia2.pipeline.entity_ruler import fetch_ruler_patterns_by_tag
+from ia2.pipeline.entity_matcher import (
     EntityMatcher,
-    ViolenceContextMatcher,
     matcher_patterns,
     fetch_cb_by_tag,
 )
-from pipeline_components.entity_custom import EntityCustom
+from ia2.pipeline.entity_custom import EntityCustom
 
 logger = logging.getLogger("Spacy cli util")
 logger.setLevel(logging.DEBUG)
-logger_fh = logging.FileHandler("logs/debug.log")
+logger_fh = logging.FileHandler("src/ia2/ia2/logs/debug.log")
 logger_fh.setLevel(logging.DEBUG)
-formatter = logging.Formatter("[%(asctime)s] (%(name)s) :: %(levelname)s :: %(message)s")
+formatter = logging.Formatter(
+    "[%(asctime)s] (%(name)s) :: %(levelname)s :: %(message)s"
+)
 logger_fh.setFormatter(formatter)
 logger.addHandler(logger_fh)
+
 
 def convert_dataturks_to_spacy(dataturks_JSON_file_path, entity_list):
     try:
@@ -78,7 +78,11 @@ def convert_dataturks_to_spacy(dataturks_JSON_file_path, entity_list):
                                     point["end"] - point["start"],
                                 )
                             )
-                    annotations = sorted(annotations, key=lambda student: student[3], reverse=True)
+                    annotations = sorted(
+                        annotations,
+                        key=lambda student: student[3],
+                        reverse=True,
+                    )
 
                     seen_tokens = set()
                     for annotation in annotations:
@@ -86,7 +90,10 @@ def convert_dataturks_to_spacy(dataturks_JSON_file_path, entity_list):
                         start = annotation[0]
                         end = annotation[1]
                         labels = annotation[2]
-                        if start not in seen_tokens and end - 1 not in seen_tokens:
+                        if (
+                            start not in seen_tokens
+                            and end - 1 not in seen_tokens
+                        ):
                             seen_tokens.update(range(start, end))
                             if isinstance(labels, list):
                                 labels = labels[0]
@@ -101,7 +108,13 @@ def convert_dataturks_to_spacy(dataturks_JSON_file_path, entity_list):
         # logger.info("Overlapped entities : {}".format(count_overlaped))
         return training_data
     except Exception as e:
-        logging.exception("Unable to process " + dataturks_JSON_file_path + "\n" + "error = " + str(e))
+        logging.exception(
+            "Unable to process "
+            + dataturks_JSON_file_path
+            + "\n"
+            + "error = "
+            + str(e)
+        )
         return None
 
 
@@ -172,7 +185,7 @@ class SpacyUtils:
         for ent in arr:
             ner.add_label(ent)
         print(f"Entities add to model {ner.move_names}")
-        nlp.begin_training()
+        nlp.create_optimizer()
         nlp.to_disk(model_path)
 
         logger.info(f'Succesfully added entities at model: "{model_path}".')
@@ -182,7 +195,11 @@ class SpacyUtils:
     # =================================
 
     def convert_dataturks_to_train_file(
-        self, input_files_path: str, entities: list, output_file_path: str, num_files: int = 0
+        self,
+        input_files_path: str,
+        entities: list,
+        output_file_path: str,
+        num_files: int = 0,
     ):
         """
         Given an input directory and a list of entities, converts every .json
@@ -202,19 +219,29 @@ class SpacyUtils:
 
         TRAIN_DATA = []
         begin_time = datetime.datetime.now()
-        input_files = [f for f in listdir(input_files_path) if isfile(join(input_files_path, f))]
+        input_files = [
+            f
+            for f in listdir(input_files_path)
+            if isfile(join(input_files_path, f))
+        ]
 
         if num_files == 0:
             num_files = len(input_files)
 
         for input_file in input_files[:num_files]:
-            logger.info(f'Extracting raw data and occurrences from file: "{input_file}"...')
-            extracted_data = convert_dataturks_to_spacy(f"{input_files_path}/{input_file}", entities)
+            logger.info(
+                f'Extracting raw data and occurrences from file: "{input_file}"...'
+            )
+            extracted_data = convert_dataturks_to_spacy(
+                f"{input_files_path}/{input_file}", entities
+            )
             TRAIN_DATA = TRAIN_DATA + extracted_data
             logger.info(f'Finished extracting data from file "{input_file}".')
 
         diff = datetime.datetime.now() - begin_time
-        logger.info(f"Lasted {diff} to extract dataturks data from {len(input_files)} documents.")
+        logger.info(
+            f"Lasted {diff} to extract dataturks data from {len(input_files)} documents."
+        )
         logger.info(
             f"Converting {len(TRAIN_DATA)} Documents with Occurences extracted from {len(input_files)} files into Spacy supported format..."
         )
@@ -223,7 +250,9 @@ class SpacyUtils:
             srsly.write_json(output_file_path, TRAIN_DATA)
             logger.info("💾 Done.")
         except Exception:
-            logging.exception(f'An error occured writing the output file at "{output_file_path}".')
+            logging.exception(
+                f'An error occured writing the output file at "{output_file_path}".'
+            )
 
     def calculate_by_entity(self, totalizer, entities):
         for span in entities:
@@ -232,10 +261,11 @@ class SpacyUtils:
             except:
                 totalizer[span[2]] = 1
 
-
-    def remove_misaligned_annotations_from(self, model_path: str, input_files_path: str, data_type: str):
+    def remove_misaligned_annotations_from(
+        self, model_path: str, input_files_path: str, data_type: str
+    ):
         """
-        Given a Spacy model path, a data file path and a data type (it should be one of: training, validation, testing), 
+        Given a Spacy model path, a data file path and a data type (it should be one of: training, validation, testing),
         removes misaligned annotations to the given file and updates the model to the given path.
         Before removing misaligned annotations, it creates a copy of the involved file.
 
@@ -244,8 +274,8 @@ class SpacyUtils:
         :param data_type: file data type (it should be one of: training, validation, testing)
         """
 
-        #we create a backup copy of the file to be modified
-        dest = input_files_path.replace('.json', f'_copy_with_misaligned.json')
+        # we create a backup copy of the file to be modified
+        dest = input_files_path.replace(".json", f"_copy_with_misaligned.json")
         orig = input_files_path
         shutil.copyfile(orig, dest)
 
@@ -256,39 +286,57 @@ class SpacyUtils:
         only_misaligneds = 0
         total_lost_misaligned = 1
 
-        with open(input_files_path, 'r') as f:
+        with open(input_files_path, "r") as f:
             data = json.load(f)
 
             for text, annotations in data:
                 doc_gold_text = nlp.make_doc(text)
-                annotation_ents = annotations.get('entities')
-                alignment_values = spacy.gold.biluo_tags_from_offsets(doc_gold_text, annotation_ents)
-                is_misaligned_doc = True if '-' in alignment_values else False
+                annotation_ents = annotations.get("entities")
+                alignment_values = spacy.training.offsets_to_biluo_tags(
+                    doc_gold_text, annotation_ents
+                )
+                is_misaligned_doc = True if "-" in alignment_values else False
                 if is_misaligned_doc:
                     text_array = nlp(text)
-                    misaligned_texts = self.get_misaligned_texts(alignment_values, text_array)
+                    misaligned_texts = self.get_misaligned_texts(
+                        alignment_values, text_array
+                    )
                     for i, annot in enumerate(annotation_ents):
-                        annotation_text = str(text[annot[0]:annot[1]])
-                        if any(annotation_text.replace(' ', '') in text for text in misaligned_texts):
+                        annotation_text = str(text[annot[0] : annot[1]])
+                        if any(
+                            annotation_text.replace(" ", "") in text
+                            for text in misaligned_texts
+                        ):
                             # print(f"annotation_text {annotation_text}")
                             # print(f"esta MAL la annotation: {annot} con idx: {i}")
                             annotation_ents.pop(i)
                             only_misaligneds = only_misaligneds + 1
 
                     misaligned_docs_qty = misaligned_docs_qty + 1
-                    self.calculate_by_entity(misaligned_lost_by_entities, annotation_ents)
+                    self.calculate_by_entity(
+                        misaligned_lost_by_entities, annotation_ents
+                    )
 
-            with open(input_files_path, 'w', encoding='utf-8') as f:
+            with open(input_files_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
 
             if misaligned_docs_qty:
-                total_lost_misaligned = functools.reduce(lambda a,b: a+b, misaligned_lost_by_entities.values())
+                total_lost_misaligned = functools.reduce(
+                    lambda a, b: a + b, misaligned_lost_by_entities.values()
+                )
 
-            print(f'\n\nMisaligned docs for {data_type} data: {misaligned_docs_qty}/{len(data)} ({round(100*misaligned_docs_qty/len(data),2)}%).')
-            print(f'Entities that could be lost because of misaligned: {total_lost_misaligned}.')
-            print(f'Misaligned annotations removed: {only_misaligneds} ({round(only_misaligneds/total_lost_misaligned*100, 2)}% of total entities in related docs).')
-            print(f'Data without misaligned annotations saved in:  {input_files_path}')
-
+            print(
+                f"\n\nMisaligned docs for {data_type} data: {misaligned_docs_qty}/{len(data)} ({round(100*misaligned_docs_qty/len(data),2)}%)."
+            )
+            print(
+                f"Entities that could be lost because of misaligned: {total_lost_misaligned}."
+            )
+            print(
+                f"Misaligned annotations removed: {only_misaligneds} ({round(only_misaligneds/total_lost_misaligned*100, 2)}% of total entities in related docs)."
+            )
+            print(
+                f"Data without misaligned annotations saved in:  {input_files_path}"
+            )
 
     # =================================
     # Model Training functions
@@ -310,7 +358,7 @@ class SpacyUtils:
     ):
         init_time = time.time()
         print("\nsettings", settings)
-        optimizer = utils.set_optimizer(optimizer, **settings["optimizer"])
+        optimizer = ia2.utils.set_optimizer(optimizer, **settings["optimizer"])
         state = {
             "i": 0,
             "epochs": n_iter,
@@ -352,11 +400,11 @@ class SpacyUtils:
             test_texts, test_annotations = zip(*testing_data)
 
         tr_texts, tr_annotations = zip(*training_data)
+        losses = None
 
         while not state["stop"] and state["i"] < state["epochs"]:
             # Randomizes training data
             random.shuffle(training_data)
-            losses = {}
 
             # set/update Adam optimizer from state
             optimizer.learn_rate = state["lr"]
@@ -372,13 +420,15 @@ class SpacyUtils:
             # bz = []
             for batch in batches:
                 num_batches += 1
-                texts, annotations = zip(*batch)
-                # bz.append(len(texts))
-                nlp.update(
-                    texts,  # batch of raw texts
-                    annotations,  # batch of annotations
+                # Create Example instance for each training example in mini batch
+                texts = [
+                    Example.from_dict(nlp.make_doc(text), annotations)
+                    for text, annotations in batch
+                ]
+                # Update model with mini batch
+                losses = nlp.update(
+                    texts,
                     drop=state["dropout"],
-                    losses=losses,
                     sgd=optimizer,
                 )
 
@@ -388,17 +438,44 @@ class SpacyUtils:
             log_annotations = True if state["i"] == 0 else False
             try:
                 # compute validation scores
-                val_f_score, val_precision_score, val_recall_score, val_per_type_score = -1, -1, -1, -1
+                (
+                    val_f_score,
+                    val_precision_score,
+                    val_recall_score,
+                    val_per_type_score,
+                ) = (-1, -1, -1, -1)
                 if settings["evaluate"] == "val":
                     logger.info("Evaluating docs from validation data")
-                    val_f_score, val_precision_score, val_recall_score, val_per_type_score = self.evaluate_multiple(
-                        optimizer, nlp, val_texts, val_annotations, "validation", save_misaligneds_to_file, log_annotations
+                    (
+                        val_f_score,
+                        val_precision_score,
+                        val_recall_score,
+                        val_per_type_score,
+                    ) = self.evaluate_multiple(
+                        optimizer,
+                        nlp,
+                        val_texts,
+                        val_annotations,
+                        "validation",
+                        save_misaligneds_to_file,
+                        log_annotations,
                     )
 
                 # train data score
                 logger.info("Evaluating docs from training data")
-                f_score, precision_score, recall_score, per_type_score = self.evaluate_multiple(
-                    optimizer, nlp, tr_texts, tr_annotations, "training", save_misaligneds_to_file, log_annotations
+                (
+                    f_score,
+                    precision_score,
+                    recall_score,
+                    per_type_score,
+                ) = self.evaluate_multiple(
+                    optimizer,
+                    nlp,
+                    tr_texts,
+                    tr_annotations,
+                    "training",
+                    save_misaligneds_to_file,
+                    log_annotations,
                 )
 
                 numero_losses = losses.get("ner")
@@ -406,7 +483,7 @@ class SpacyUtils:
             except Exception as e:
                 logger.exception("The batch has no training data.")
 
-            utils.save_state_history(
+            ia2.utils.save_state_history(
                 state,
                 numero_losses,
                 f_score,
@@ -433,14 +510,31 @@ class SpacyUtils:
             # for each one of this models.
             if settings["evaluate"] == "test" and state["evaluate_test"]:
                 logger.info("Evaluating docs from testing data")
-                test_f_score, test_precision_score, test_recall_score, test_per_type_score = self.evaluate_multiple(
-                    optimizer, nlp, test_texts, test_annotations, "test", save_misaligneds_to_file, log_annotations
+                (
+                    test_f_score,
+                    test_precision_score,
+                    test_recall_score,
+                    test_per_type_score,
+                ) = self.evaluate_multiple(
+                    optimizer,
+                    nlp,
+                    test_texts,
+                    test_annotations,
+                    "test",
+                    save_misaligneds_to_file,
+                    log_annotations,
                 )
-                logger.info("############################################################")
+                logger.info(
+                    "############################################################"
+                )
                 logger.info("Evaluating saved model with test data")
-                logger.info(f"Scores :f1-score: {test_f_score}, precision: {test_precision_score}")
+                logger.info(
+                    f"Scores :f1-score: {test_f_score}, precision: {test_precision_score}"
+                )
                 logger.info(f"{test_per_type_score}")
-                logger.info("############################################################")
+                logger.info(
+                    "############################################################"
+                )
 
             state["evaluate_test"] = False
             state["i"] += 1
@@ -470,7 +564,7 @@ class SpacyUtils:
             "decaying": decaying,
         }
         try:
-            with open("train_config.json") as f:
+            with open("src/ia2/ia2/train_config.json") as f:
                 train_config = json.load(f)
                 train_config = train_config[config]
             # GPU
@@ -483,11 +577,17 @@ class SpacyUtils:
                     spacy.prefer_gpu()
                     logger.info("Using GPU 🎮")
                 except Exception as e:
-                    logger.warning("❗ Either GPU not available or CUDA versions is not compatible: %s", str(e))
+                    logger.warning(
+                        "❗ Either GPU not available or CUDA versions is not compatible: %s",
+                        str(e),
+                    )
 
             # test dataset
             evaluate = "val"
-            if "evaluate" in train_config and train_config["evaluate"] == "test":
+            if (
+                "evaluate" in train_config
+                and train_config["evaluate"] == "test"
+            ):
                 evaluate = "test"
 
             test_ds = ""
@@ -495,8 +595,10 @@ class SpacyUtils:
                 test_ds = train_config["path_data_testing"]
 
             # train settings
-            dropout = utils.set_dropout(train_config, FUNC_MAP)
-            batch_size, batch_args = utils.set_batch_size(train_config, FUNC_MAP)
+            dropout = ia2.utils.set_dropout(train_config, FUNC_MAP)
+            batch_size, batch_args = ia2.utils.set_batch_size(
+                train_config, FUNC_MAP
+            )
 
             # optimizer hyperparams
             optimizer = {}
@@ -524,7 +626,11 @@ class SpacyUtils:
             for cb in train_config["callbacks"]["on_stop"]:
                 on_stop_cb.append(FUNC_MAP[cb.pop("f")](**cb))
 
-            c = {"on_iteration": on_iter_cb, "on_batch": on_batch_cb, "on_stop": on_stop_cb}
+            c = {
+                "on_iteration": on_iter_cb,
+                "on_batch": on_batch_cb,
+                "on_stop": on_stop_cb,
+            }
 
         except Exception as e:
             print(e)
@@ -583,28 +689,46 @@ class SpacyUtils:
         """
 
         if is_raw:
-            logger.info(f"loading and converting training data from dataturks: {path_data_training}")
-            training_data = convert_dataturks_to_spacy(path_data_training, ents)
+            logger.info(
+                f"loading and converting training data from dataturks: {path_data_training}"
+            )
+            training_data = convert_dataturks_to_spacy(
+                path_data_training, ents
+            )
 
             if path_data_validation != "":
-                logger.info(f"loading and converting validation data from dataturks: {path_data_training}")
-                validation_data = convert_dataturks_to_spacy(path_data_training, ents)
+                logger.info(
+                    f"loading and converting validation data from dataturks: {path_data_training}"
+                )
+                validation_data = convert_dataturks_to_spacy(
+                    path_data_training, ents
+                )
 
             if path_data_testing != "":
-                logger.info(f"loading and converting testing data from dataturks: {path_data_training}")
-                testing_data = convert_dataturks_to_spacy(path_data_testing, ents)
+                logger.info(
+                    f"loading and converting testing data from dataturks: {path_data_training}"
+                )
+                testing_data = convert_dataturks_to_spacy(
+                    path_data_testing, ents
+                )
         else:
-            logger.info(f"loading pre-converted training data JSON: {path_data_training}")
+            logger.info(
+                f"loading pre-converted training data JSON: {path_data_training}"
+            )
             with open(path_data_training) as f:
                 training_data = json.load(f)
 
             if path_data_validation != "":
-                logger.info(f"loading pre-converted validation data JSON: {path_data_validation}")
+                logger.info(
+                    f"loading pre-converted validation data JSON: {path_data_validation}"
+                )
                 with open(path_data_validation) as f:
                     validation_data = json.load(f)
 
             if path_data_testing != "":
-                logger.info(f"loading pre-converted testing data JSON: {path_data_testing}")
+                logger.info(
+                    f"loading pre-converted testing data JSON: {path_data_testing}"
+                )
                 with open(path_data_testing) as f:
                     testing_data = json.load(f)
                 # mix train and validation data
@@ -617,7 +741,9 @@ class SpacyUtils:
         nlp = spacy.load(model_path)
         # Filters pipes to disable them during training
         pipe_exceptions = ["ner"]
-        other_pipes = [pipe for pipe in nlp.pipe_names if pipe not in pipe_exceptions]
+        other_pipes = [
+            pipe for pipe in nlp.pipe_names if pipe not in pipe_exceptions
+        ]
 
         # Creates a ner pipe if it does not exist.
         if "ner" not in nlp.pipe_names:
@@ -633,11 +759,13 @@ class SpacyUtils:
 
         with warnings.catch_warnings():
             # Show warnings for misaligned entity spans once
-            warnings.filterwarnings("once", category=UserWarning, module="spacy")
+            warnings.filterwarnings(
+                "once", category=UserWarning, module="spacy"
+            )
 
             # NOTE these configs are not yet well documented in SpaCy 2
             # please read this https://github.com/explosion/spaCy/issues/5513#issuecomment-635169316
-            optimizer = nlp.begin_training(component_cfg={"ner": {"conv_window": 3, "hidden_width": 64}})
+            optimizer = nlp.create_optimizer()
 
             # this initial save remove the pipelines from base model and is not restoring them
             #
@@ -652,7 +780,10 @@ class SpacyUtils:
                     "on_batch": [sleep(secs=1)],
                     "on_iteration": [
                         print_scores_on_epoch(),
-                        save_best_model(path_best_model=path_best_model, threshold=max_losses),
+                        save_best_model(
+                            path_best_model=path_best_model,
+                            threshold=max_losses,
+                        ),
                         reduce_lr_on_plateau(epochs=3, diff=1, step=0.001),
                         early_stop(epochs=10, diff=2),
                         update_best_scores(),
@@ -711,24 +842,32 @@ class SpacyUtils:
         scorer = Scorer()
         try:
             doc_gold_text = nlp.make_doc(text)
-            alignment_values = spacy.gold.biluo_tags_from_offsets(doc_gold_text, entity_ocurrences.get("entities"))
-            is_misaligned_doc = True if '-' in alignment_values else False
-            gold = GoldParse(doc_gold_text, entities=entity_ocurrences.get("entities"))
-            pred_value = nlp(text)
-            scorer.score(pred_value, gold)
-            return scorer.scores, is_misaligned_doc, alignment_values
+
+            alignment_values = spacy.training.offsets_to_biluo_tags(
+                doc_gold_text, entity_ocurrences.get("entities")
+            )
+            is_misaligned_doc = True if "-" in alignment_values else False
+            gold = Example.from_dict(
+                doc_gold_text, {"entities": entity_ocurrences.get("entities")}
+            )
+            gold.predicted = nlp(str(gold.predicted))
+            scr = scorer.score([gold])
+
+            return scr, is_misaligned_doc, alignment_values
         except Exception as e:
             print(e)
 
     def get_misaligned_texts(self, misaligned_array, text_array):
         """
-        Given a list of alignment values for a doc and an array with the tokenized doc, 
+        Given a list of alignment values for a doc and an array with the tokenized doc,
         it find and returns an array of matching misaligned annotations.
 
         :param misaligned_array: A list of alignment values for a doc.
         :param text_array: A list that represents a tokenized doc.
-        """        
-        misaligned_indexes = [i for i, x in enumerate(misaligned_array) if x == "-"]
+        """
+        misaligned_indexes = [
+            i for i, x in enumerate(misaligned_array) if x == "-"
+        ]
         misaligned_texts = []
         i = 0
         word_ended = False
@@ -738,34 +877,47 @@ class SpacyUtils:
         while i < len(misaligned_indexes):
             token_text = text_array[misaligned_indexes[i]].text
             try:
-                next_index_is_consecutive = len(misaligned_indexes) > 1 and (misaligned_indexes[i+1] - misaligned_indexes[i]) == 1
+                next_index_is_consecutive = (
+                    len(misaligned_indexes) > 1
+                    and (misaligned_indexes[i + 1] - misaligned_indexes[i])
+                    == 1
+                )
             except:
                 next_index_is_consecutive = False
 
             if i == 0 or text == "":
-                it_follows_prev_index = False 
+                it_follows_prev_index = False
                 text = token_text
-            else:                
-                it_follows_prev_index = (misaligned_indexes[i] - misaligned_indexes[i-1]) == 1
-            
+            else:
+                it_follows_prev_index = (
+                    misaligned_indexes[i] - misaligned_indexes[i - 1]
+                ) == 1
+
             if it_follows_prev_index:
-                text = text + " "+ token_text
+                text = text + " " + token_text
 
             word_ended = not next_index_is_consecutive
 
             if word_ended:
-                misaligned_texts.append(text.replace(' ', ''))
+                misaligned_texts.append(text.replace(" ", ""))
                 text = ""
-            
-            i = i+1
+
+            i = i + 1
 
         return misaligned_texts
 
-    def get_total_misaligneds(self, nlp, save_it_to_file = False, filename="misaligned.json", log_annotations=True , misaligned_docs=[]):
+    def get_total_misaligneds(
+        self,
+        nlp,
+        save_it_to_file=False,
+        filename="misaligned.json",
+        log_annotations=True,
+        misaligned_docs=[],
+    ):
         """
         IMPORTANT! This function is being called when training the model.
 
-        Given a filename and an array of misaligned docs, it finds for every doc only 
+        Given a filename and an array of misaligned docs, it finds for every doc only
         matching misaligned annotations and saves them to a json file with a structure similar
         to the one used by Spacy for training data (json object with text and annotations).
         The file/s are being saved in logs folder.
@@ -779,12 +931,14 @@ class SpacyUtils:
         for i in range(len(misaligned_docs)):
             text_raw = misaligned_docs[i]["text"]
             text_array = nlp(text_raw)
-            #to check how the doc is being tokenized and understand why the misaligned warning is arising
-            # if "validation" in filename: 
-                # tok_exp = nlp.tokenizer.explain(text_raw)
-                # for t in tok_exp:
-                    # print(t[1], "\t", t[0])
-            misaligned_texts = self.get_misaligned_texts(misaligned_docs[i]["alignment_values"], text_array)
+            # to check how the doc is being tokenized and understand why the misaligned warning is arising
+            # if "validation" in filename:
+            # tok_exp = nlp.tokenizer.explain(text_raw)
+            # for t in tok_exp:
+            # print(t[1], "\t", t[0])
+            misaligned_texts = self.get_misaligned_texts(
+                misaligned_docs[i]["alignment_values"], text_array
+            )
             total_misaligneds = total_misaligneds + len(misaligned_texts)
 
             if save_it_to_file:
@@ -792,13 +946,21 @@ class SpacyUtils:
                 misaligned_annotations = []
 
                 for i, annot in enumerate(annotations):
-                    annotation_text = str(text_raw[annot[0]:annot[1]])
-                    if any(annotation_text.replace(' ', '') in text for text in misaligned_texts):
+                    annotation_text = str(text_raw[annot[0] : annot[1]])
+                    if any(
+                        annotation_text.replace(" ", "") in text
+                        for text in misaligned_texts
+                    ):
                         annotation = list(annotations[i])
                         annotation.append(annotation_text)
                         misaligned_annotations.append(annotation)
-                #we save a part of the text in order to be able to search it in the full text file
-                data.append({"text": text_raw[0:700], "annotations": misaligned_annotations})
+                # we save a part of the text in order to be able to search it in the full text file
+                data.append(
+                    {
+                        "text": text_raw[0:700],
+                        "annotations": misaligned_annotations,
+                    }
+                )
 
         if save_it_to_file and log_annotations:
             srsly.write_json(path, data)
@@ -806,8 +968,16 @@ class SpacyUtils:
 
         return total_misaligneds
 
-
-    def evaluate_multiple(self, optimizer, nlp, texts: list, entity_occurences: list, data_type: str, save_misaligneds_to_file: bool, log_annotations: bool):
+    def evaluate_multiple(
+        self,
+        optimizer,
+        nlp,
+        texts: list,
+        entity_occurences: list,
+        data_type: str,
+        save_misaligneds_to_file: bool,
+        log_annotations: bool,
+    ):
         f_score_sum = 0
         precision_score_sum = 0
         recall_score_sum = 0
@@ -823,16 +993,29 @@ class SpacyUtils:
             text = texts[idx]
             entities_for_text = entity_occurences[idx]
             with nlp.use_params(optimizer.averages):
-                scores, is_misaligned_doc, alignment_values = self.evaluate(nlp, text, entities_for_text)
+                scores, is_misaligned_doc, alignment_values = self.evaluate(
+                    nlp, text, entities_for_text
+                )
                 recall_score_sum += scores.get("ents_r")
                 precision_score_sum += scores.get("ents_p")
                 f_score_sum += scores.get("ents_f")
 
-                self.calculate_by_entity(total_by_entities, entities_for_text['entities'])
+                self.calculate_by_entity(
+                    total_by_entities, entities_for_text["entities"]
+                )
 
                 if is_misaligned_doc:
-                    misaligned_docs.append({"text": text, "entities":entities_for_text, "alignment_values": alignment_values})
-                    self.calculate_by_entity(misaligned_lost_by_entities, entities_for_text['entities'])
+                    misaligned_docs.append(
+                        {
+                            "text": text,
+                            "entities": entities_for_text,
+                            "alignment_values": alignment_values,
+                        }
+                    )
+                    self.calculate_by_entity(
+                        misaligned_lost_by_entities,
+                        entities_for_text["entities"],
+                    )
 
                 for key, value in scores["ents_per_type"].items():
                     if key not in ents_per_type_sum:
@@ -841,15 +1024,29 @@ class SpacyUtils:
                         ents_per_type_sum[key] += value["f"]
 
         if len(misaligned_docs):
-            only_misaligneds = self.get_total_misaligneds(nlp, save_misaligneds_to_file, f"{data_type}_misaligned_docs.json", log_annotations, misaligned_docs)
-            total_lost_misaligned = functools.reduce(lambda a,b: a+b, misaligned_lost_by_entities.values())
+            only_misaligneds = self.get_total_misaligneds(
+                nlp,
+                save_misaligneds_to_file,
+                f"{data_type}_misaligned_docs.json",
+                log_annotations,
+                misaligned_docs,
+            )
+            total_lost_misaligned = functools.reduce(
+                lambda a, b: a + b, misaligned_lost_by_entities.values()
+            )
 
         if log_annotations:
-            logger.info(f'Misaligned docs for {data_type} data: {len(misaligned_docs)}/{len(texts)} ({round(100*len(misaligned_docs)/len(texts),2)}%).')
-            logger.info(f'🔍 ANNOTATIONS! 🔍')
-            logger.info(f'Total by entities: {total_by_entities}.')
-            logger.info(f'Lost entities because of misaligned: {total_lost_misaligned}.')
-            logger.info(f'Misaligned: {only_misaligneds} ({round(only_misaligneds/total_lost_misaligned*100, 2)}%).')
+            logger.info(
+                f"Misaligned docs for {data_type} data: {len(misaligned_docs)}/{len(texts)} ({round(100*len(misaligned_docs)/len(texts),2)}%)."
+            )
+            logger.info(f"🔍 ANNOTATIONS! 🔍")
+            logger.info(f"Total by entities: {total_by_entities}.")
+            logger.info(
+                f"Lost entities because of misaligned: {total_lost_misaligned}."
+            )
+            logger.info(
+                f"Misaligned: {only_misaligneds} ({round(only_misaligneds/total_lost_misaligned*100, 2)}%)."
+            )
 
         for key, value in ents_per_type_sum.items():
             ents_per_type_sum[key] = value / len(texts)
@@ -858,11 +1055,16 @@ class SpacyUtils:
             f_score_sum / len(texts),
             precision_score_sum / len(texts),
             recall_score_sum / len(texts),
-            ents_per_type_sum
+            ents_per_type_sum,
         )
 
     def build_model_package(
-        self, model_path: str, package_path: str, model_name: str, model_version: str, model_components: str
+        self,
+        model_path: str,
+        package_path: str,
+        model_name: str,
+        model_version: str,
+        model_components: str,
     ):
         """
         Given a model path, a dist path, a model name, a version number and a
@@ -881,32 +1083,39 @@ class SpacyUtils:
         nlp.meta["version"] = str(model_version)
         pipelines_tag = "todas"
 
-        ruler = EntityRuler(nlp, overwrite_ents=True)
+        ruler = nlp.add_pipe("entity_ruler", before="ner")
         ruler.add_patterns(fetch_ruler_patterns_by_tag(pipelines_tag))
-        nlp.add_pipe(ruler)
 
         entity_matcher = EntityMatcher(
-            nlp, matcher_patterns, after_callbacks=[cb(nlp) for cb in fetch_cb_by_tag(pipelines_tag)]
+            nlp,
+            matcher_patterns,
+            after_callbacks=[cb(nlp) for cb in fetch_cb_by_tag(pipelines_tag)],
         )
-        nlp.add_pipe(entity_matcher)
+        entity_matcher = nlp.add_pipe("matcher")
 
         entity_custom = EntityCustom(nlp, pipelines_tag)
-        nlp.add_pipe(entity_custom)
+        nlp.add_pipe("matcher_custom")
 
         nlp.to_disk(model_path)
-        logger.info(f'Succesfully added rule based mathching at model: "{model_path}".')
+        logger.info(
+            f'Succesfully added rule based mathching at model: "{model_path}".'
+        )
 
         package(model_path, package_path)
         logger.info(f'Succesfully package at model: "{package_path}".')
 
         package_name = nlp.meta["lang"] + "_" + nlp.meta["name"]
         package_dir = package_name + "-" + nlp.meta["version"]
-        package_base_path = os.path.join(package_path, package_dir, package_name)
+        package_base_path = os.path.join(
+            package_path, package_dir, package_name
+        )
 
         # Copio archivos con modulos custom al directorio pipe_components (no uso model_components para que sea fijo y siempre el mismo en nuestro componente, y asi poder desacoplarlo de cuando tengamos multiples clientes
         package_components_dir = "pipeline_components"
         files_src = ["entity_matcher.py", "entity_custom.py"]
-        dest_component_dir = os.path.join(package_base_path, package_dir, package_components_dir)
+        dest_component_dir = os.path.join(
+            package_base_path, package_dir, package_components_dir
+        )
         os.mkdir(dest_component_dir)
         for f in files_src:
             dest = os.path.join(dest_component_dir, f)
@@ -956,7 +1165,11 @@ Language.factories['entity_custom'] = lambda nlp, **cfg: moduloCustom.EntityCust
         W = "\033[0m"  # white (normal)
         R = "\033[31m"  # red
         G = "\033[32m"  # green
-        files = [os.path.join(files_path, f) for f in listdir(files_path) if isfile(join(files_path, f))]
+        files = [
+            os.path.join(files_path, f)
+            for f in listdir(files_path)
+            if isfile(join(files_path, f))
+        ]
         texts = []
 
         for file_ in files:
@@ -971,7 +1184,9 @@ Language.factories['entity_custom'] = lambda nlp, **cfg: moduloCustom.EntityCust
                                 text = a["points"][0]["text"]
                                 if context_words:
                                     text = re.escape(a["points"][0]["text"])
-                                    interval = r"{{0,{0}}}".format(context_words)
+                                    interval = r"{{0,{0}}}".format(
+                                        context_words
+                                    )
                                     regex = (
                                         r"((?:\S+\s+)"
                                         + interval
@@ -984,16 +1199,29 @@ Language.factories['entity_custom'] = lambda nlp, **cfg: moduloCustom.EntityCust
                                     x = re.search(regex, data["content"])
                                     if x:
                                         output = x.group()
-                                        output = output.replace(text.replace("\\", ""), R + text + W)
+                                        output = output.replace(
+                                            text.replace("\\", ""),
+                                            R + text + W,
+                                        )
                                 else:
                                     output = text
-                                posicion = " -- Start: {}{} {}End: {}{}{}".format(
-                                    G, str(a["points"][0]["start"]), W, G, str(a["points"][0]["end"]), W
+                                posicion = (
+                                    " -- Start: {}{} {}End: {}{}{}".format(
+                                        G,
+                                        str(a["points"][0]["start"]),
+                                        W,
+                                        G,
+                                        str(a["points"][0]["end"]),
+                                        W,
+                                    )
                                 )
-                                texts.append(output.replace("\\", "") + posicion)
+                                texts.append(
+                                    output.replace("\\", "") + posicion
+                                )
 
         for text in texts:
             print(text)
+
 
 if __name__ == "__main__":
     fire.Fire(SpacyUtils)

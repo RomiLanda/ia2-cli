@@ -1,4 +1,3 @@
-import shutil
 import logging
 import datetime
 import subprocess
@@ -6,18 +5,26 @@ import subprocess
 logger = logging.getLogger("Spacy cli utils.py")
 
 
-def set_optimizer(optimizer, learn_rate=0.001, beta1=0.9, beta2=0.999, eps=1e-8, L2=1e-3, max_grad_norm=1.0):
+def set_optimizer(
+    optimizer,
+    learn_rate=0.001,
+    beta1=0.9,
+    beta2=0.999,
+    eps=1e-8,
+    L2=1e-3,
+    max_grad_norm=1.0,
+):
     """
     Function to customizer spaCy default Adam optimizer
     # read this before touch here https://enrico-alemani.medium.com/the-customized-spacy-training-loop-9e3756fbb6f6
     """
 
     optimizer.learn_rate = learn_rate
-    optimizer.beta1 = beta1
-    optimizer.beta2 = beta2
+    optimizer.b1 = beta1
+    optimizer.b2 = beta2
     optimizer.eps = eps
     optimizer.L2 = L2
-    optimizer.max_grad_norm = max_grad_norm
+    optimizer.grad_clip = max_grad_norm
 
     return optimizer
 
@@ -27,7 +34,10 @@ def set_dropout(train_config, FUNC_MAP):
     if "dropout" not in train_config:
         return 0.2
     else:
-        if type(train_config["dropout"]) == int or type(train_config["dropout"]) == float:
+        if (
+            type(train_config["dropout"]) == int
+            or type(train_config["dropout"]) == float
+        ):
             return train_config["dropout"]
         else:
             d = train_config["dropout"]
@@ -38,7 +48,10 @@ def set_batch_size(train_config, FUNC_MAP):
     if "batch_size" not in train_config:
         return 4, ()
     else:
-        if type(train_config["batch_size"]) == int or type(train_config["batch_size"]) == float:
+        if (
+            type(train_config["batch_size"]) == int
+            or type(train_config["batch_size"]) == float
+        ):
             return train_config["batch_size"], ()
         else:
             b = train_config["batch_size"]

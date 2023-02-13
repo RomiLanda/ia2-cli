@@ -3,6 +3,7 @@ from spacy.matcher import Matcher
 from spacy.tokens import Span
 from spacy.lang.es.lex_attrs import _num_words
 from spacy.util import filter_spans
+from spacy import Language
 
 # Extends built-in lex_attrs from the spanish lang package
 num_words = _num_words + [
@@ -49,9 +50,26 @@ page_second_left_nbors = [
     "inciso",
     "inc",
 ]
-measure_unit_first_right_nbors = ["inc", "metros", "m", "gr", "grs", "gramos", "km", "kg", "cm"]
+measure_unit_first_right_nbors = [
+    "inc",
+    "metros",
+    "m",
+    "gr",
+    "grs",
+    "gramos",
+    "km",
+    "kg",
+    "cm",
+]
 
-article_left_nbors = ["artículo", "articulo", "artículos", "articulos", "art", "arts"]
+article_left_nbors = [
+    "artículo",
+    "articulo",
+    "artículos",
+    "articulos",
+    "art",
+    "arts",
+]
 
 # Violence
 gender_violence_context_text = "CONTEXTO_VIOLENCIA_DE_GÉNERO"
@@ -131,7 +149,10 @@ class GenericMatcher(object):
 
     def __call__(self, doc):
         matches = self.matcher(doc)
-        matched_spans = [Span(doc, start, end, self.nlp.vocab.strings[match_id]) for match_id, start, end in matches]
+        matched_spans = [
+            Span(doc, start, end, self.nlp.vocab.strings[match_id])
+            for match_id, start, end in matches
+        ]
         # Creates a set of seen tokens so that the filter_longer_spans function
         # prioritizes those spans we are sending.
         seen_tokens = set()
@@ -140,7 +161,11 @@ class GenericMatcher(object):
             seen_tokens.update(range(span.start, span.end))
         doc_ents = merged_matched_spans + list(doc.ents)
         # Merges adjacent entities and removes overlapped entities
-        doc.ents = filter_longer_spans(doc_ents, seen_tokens=seen_tokens, preserve_spans=merged_matched_spans)
+        doc.ents = filter_longer_spans(
+            doc_ents,
+            seen_tokens=seen_tokens,
+            preserve_spans=merged_matched_spans,
+        )
         return doc
 
 
@@ -171,7 +196,10 @@ def not_in_nbor(document_length, span, ent_name, word_list, nbor_position):
     left (negative values) or to the right (positive values)
     """
     if exist_n_token(span[0].i, nbor_position, document_length):
-        return span.label_ == ent_name and span[0].nbor(nbor_position).text not in word_list
+        return (
+            span.label_ == ent_name
+            and span[0].nbor(nbor_position).text not in word_list
+        )
     return True
 
 
@@ -189,7 +217,9 @@ def overlaps(span, span_list):
     list.
     """
     for s in span_list:
-        if is_start_of_span_contained(span, s) or is_end_of_span_contained(span, s):
+        if is_start_of_span_contained(span, s) or is_end_of_span_contained(
+            span, s
+        ):
             return True
     return False
 
@@ -215,6 +245,7 @@ matcher_patterns = [
 ]
 
 
+@Language.factory("EntityMatcher")
 class EntityMatcher(object):
     """
     EntityMatcher: Detects and labels "NUM" entities. Matches their context to
@@ -223,7 +254,14 @@ class EntityMatcher(object):
 
     name = "entity_matcher"
 
-    def __init__(self, nlp, matcher_patterns=matcher_patterns, *, after_callbacks=[]):
+    def __init__(
+        self,
+        nlp: Language,
+        name: str = "entity_matcher",
+        matcher_patterns=matcher_patterns,
+        *,
+        after_callbacks=[],
+    ):
         self.nlp = nlp
         self.matcher = Matcher(self.nlp.vocab, validate=True)
         # Adds patterns to the Matcher pipeline
@@ -233,7 +271,10 @@ class EntityMatcher(object):
 
     def __call__(self, doc):
         matches = self.matcher(doc)
-        matched_spans = [Span(doc, start, end, self.nlp.vocab.strings[match_id]) for match_id, start, end in matches]
+        matched_spans = [
+            Span(doc, start, end, self.nlp.vocab.strings[match_id])
+            for match_id, start, end in matches
+        ]
         # Merges adjacent entities and removes overlapped entities
         filtered_spans = filter_spans(matched_spans)
 
@@ -259,7 +300,13 @@ class EntityMatcher(object):
                 )
 
             def does_not_have_first_right_nbor(document_length, span):
-                return not_in_nbor(document_length, span, "NUM", measure_unit_first_right_nbors, 1)
+                return not_in_nbor(
+                    document_length,
+                    span,
+                    "NUM",
+                    measure_unit_first_right_nbors,
+                    1,
+                )
 
             if (
                 does_not_have_first_left_nbor(document_length, span)
@@ -271,7 +318,9 @@ class EntityMatcher(object):
                 # FIXME this one ent has been discarded by the nbor word lists.
                 # We should consider assigning them to an entity, or filter them
                 # somewhere else
-                logging.info(f"[FIXME] Should process this span as another ent: `{span}`")
+                logging.info(
+                    f"[FIXME] Should process this span as another ent: `{span}`"
+                )
 
         for after_callback in self.after_callbacks:
             doc = after_callback(doc)
@@ -279,10 +328,11 @@ class EntityMatcher(object):
         return doc
 
 
+@Language.factory("ArticlesMatcher")
 class ArticlesMatcher(object):
     name = "articles_matcher"
 
-    def __init__(self, nlp):
+    def __init__(self, nlp: Language, name: str = "articles_matcher"):
         article_patterns = self.get_article_patterns()
         self.matcher = GenericMatcher(nlp, article_patterns)
 
@@ -297,7 +347,13 @@ class ArticlesMatcher(object):
                     {"LOWER": {"IN": article_left_nbors}},
                     {"IS_PUNCT": True, "OP": "?"},
                     {"IS_DIGIT": True, "OP": "+"},
-                    *repeat_patterns([{"ORTH": ",", "OP": "*"}, {"IS_DIGIT": True, "OP": "?"}], 14),
+                    *repeat_patterns(
+                        [
+                            {"ORTH": ",", "OP": "*"},
+                            {"IS_DIGIT": True, "OP": "?"},
+                        ],
+                        14,
+                    ),
                     {"ORTH": "y", "OP": "?"},
                     {"IS_DIGIT": True, "OP": "?"},
                 ],
@@ -340,7 +396,13 @@ class ViolenceContextMatcher(object):
                     {"LOWER": {"IN": violence_nbors}},
                     {"IS_PUNCT": True, "OP": "?"},
                     {"LOWER": {"IN": violence_types}, "OP": "?"},
-                    *repeat_patterns([{"ORTH": ",", "OP": "*"}, {"LOWER": {"IN": violence_types}, "OP": "?"}], 7),
+                    *repeat_patterns(
+                        [
+                            {"ORTH": ",", "OP": "*"},
+                            {"LOWER": {"IN": violence_types}, "OP": "?"},
+                        ],
+                        7,
+                    ),
                     {"ORTH": "y", "OP": "+"},
                     {"LOWER": {"IN": violence_types}, "OP": "+"},
                 ],

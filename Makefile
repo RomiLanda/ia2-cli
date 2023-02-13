@@ -1,20 +1,21 @@
-.PHONY: test
-SHELL := /bin/bash
+include .env
+export $(shell sed 's/=.*//' .env)
 
-default: help
+core-build:
+	docker-compose build ia2-core
 
-#help: @ Shows help topics
-help:
-	@grep -E '[a-zA-Z\.\-]+:.*?@ .*$$' $(MAKEFILE_LIST)| tr -d '#'  | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}'
+core-run:
+	docker-compose run ia2-core
 
-#test: @ Run all tests
-test:
-	source .env && python -m unittest discover -v -p "test_*.py"
+jupyter-build: core-build
+	docker-compose build ia2-jupyter
 
-#lint: @ Run flake8 linter (does not format code)
-lint:
-	python -m flake8 --config=.flake8 --statistics --count .
+jupyter-run: jupyter-build
+	docker-compose up ia2-jupyter-gpu
 
-#format: @ Run black code formatter
-format:
-	python -m black --config ./pyproject.toml .
+jupyter-run-cpu: jupyter-build
+	docker-compose up ia2-jupyter-cpu
+
+core-test-cpu-all: export TEST_COMMAND=$(BASE_TEST_COMMAND)
+core-test-cpu-all: core-build
+	docker-compose run ia2-core-test-cpu
