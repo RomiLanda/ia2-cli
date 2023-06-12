@@ -30,6 +30,9 @@ resources/datasets/unified/*
 resources/datasets/docbin/*
 !resources/datasets/docbin/.gitkeep
 
+resources/datasets/image_recognition/*
+!resources/datasets/image_recognition/.gitkeep
+
 src/ia2/ia2/models/*
 !models/.gitkeep
 
